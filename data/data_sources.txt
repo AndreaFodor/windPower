@@ -1,0 +1,7 @@
+History of sources of electricity generated in Quebec:
+https://donnees.hydroquebec.com/explore/dataset/historique-production-electricite-quebec/export/?sort=-date
+
+Canadian Wind Turbine Database
+https://open.canada.ca/data/en/dataset/79fdad93-9025-49ad-ba16-c26d718cc070
+
+
