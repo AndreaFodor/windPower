@@ -1,0 +1,19 @@
+The python notebook titled "trying_random_forest" is an attempt to try Random Forest Regression on our weather data.
+
+Random forests is an 'ensemble' ML technique, where a collection of decision trees are made from the data, and they 'vote' on a prediction.
+
+In this notebook I imported our file, and then made a pandas dataframe from it. I then removed the column the corresponds to the number 0-34064 on the left. This number corresponds to the number of hours beginning at midnight in 2019 in Quebec. I converted the time and date column to two columns, one that records the month and one that records the time of day.
+
+I then changed the dataframe so that the "wind_power" at time t corresponds to the total power generated over the next 24 hours.
+
+I then made some subsets of the this data for training and testing. I took a random start time and random length of time for the training data and then tested on a few days worth of data points.
+
+I then ran random forest regression on this data with a variety of different parameters changed.
+
+There are some xlsx files with the results. They are titled according to what data I ran, for example "2914_to_7709_240hrs_results_output.xlsx" used training data from the hours 2914 to 7709 and then tested on data points over the next 10 days.
+
+
+Note to self: I should run a gridsearch algorithm or recursive feature elimination to choose my features and hyperparmeters.
+
+
+
