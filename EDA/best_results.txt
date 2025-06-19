@@ -1,0 +1,40 @@
+SUMMARY (as of now):
+
+- Excluding features other than wind speed and temperature seem to have made the model better.
+- Cubing speed seem to improve the model
+- Cubing speed and dividing by temperature seem to have a very slight impact
+- Including radius squared have not seem to improve the model (probably because most wind turbines are roughly similar size)
+
+
+
+Best results for different approaches:
+
+1. Only the feature wind speed:
+    Best combination in terms of mean MAPE: pca = 36, nbr = 5, MAPE = 0.181 ± 0.029, R2 = 0.911 ± 0.015 
+    Best combination in terms of mean R2 score: pca = 36, nbr = 5, MAPE = 0.181 ± 0.029, R2 = 0.911 ± 0.015 
+
+2. Only the modified feature wind speed cubed:
+    Best combination in terms of mean MAPE: pca = 35, nbr = 9, MAPE = 0.166 ± 0.025, R2 = 0.911 ± 0.015 
+    Best combination in terms of mean R2 score: pca = 35, nbr = 9, MAPE = 0.166 ± 0.025, R2 = 0.911 ± 0.015 
+
+3. Only the modified feature wind speed cubed combined with radius squared:
+    Best combination in terms of mean MAPE: pca = 35, nbr = 9, MAPE = 0.166 ± 0.025, R2 = 0.911 ± 0.015 
+    Best combination in terms of mean R2 score: pca = 35, nbr = 9, MAPE = 0.166 ± 0.025, R2 = 0.911 ± 0.015 
+
+4. Only the modified feature wind speed cubed combined with radius squared and inverse of temperature:
+    Best combination in terms of mean MAPE: pca = 36, nbr = 10, MAPE = 0.165 ± 0.026, R2 = 0.913 ± 0.014 
+    Best combination in terms of mean R2 score: pca = 35, nbr = 10, MAPE = 0.166 ± 0.026, R2 = 0.913 ± 0.014 
+
+5. Only the modified feature wind speed cubed divided by temperature:
+    Best combination in terms of mean MAPE: pca = 36, nbr = 10, MAPE = 0.165 ± 0.026, R2 = 0.913 ± 0.014 
+    Best combination in terms of mean R2 score: pca = 35, nbr = 10, MAPE = 0.166 ± 0.026, R2 = 0.913 ± 0.014 
+
+6. All features: 
+    Best combination in terms of mean MAPE: pca = 7, nbr = 4, MAPE = 0.211 ± 0.032, R2 = 0.889 ± 0.017 
+    Best combination in terms of mean R2 score: pca = 10, nbr = 15, MAPE = 0.224 ± 0.040, R2 = 0.897 ± 0.014
+
+7. All feature with speed cubed:
+    Best combination in terms of mean MAPE: pca = 7, nbr = 4, MAPE = 0.259 ± 0.051, R2 = 0.868 ± 0.012 
+    Best combination in terms of mean R2 score: pca = 6, nbr = 8, MAPE = 0.268 ± 0.056, R2 = 0.871 ± 0.009
+
+
