@@ -4,4 +4,5 @@ https://donnees.hydroquebec.com/explore/dataset/historique-production-electricit
 Canadian Wind Turbine Database
 https://open.canada.ca/data/en/dataset/79fdad93-9025-49ad-ba16-c26d718cc070
 
-
+Weather Data API
+https://open-meteo.com/
