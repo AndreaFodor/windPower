@@ -91,26 +91,28 @@ def weather_api_call(start_date, end_date):
     latitude = position_df['latitude']
     longitude = position_df['longitude']
 
-    start_date += "T05:00:00"     ## adjusting for the time-zone to UTC conversion     
+    start_date += "T05:00:00"     ## adjusting for the time-zone to UTC conversion
+    end_date = pd.Timestamp(end_date)+ pd.Timedelta(1,unit='d')
+    end_date = end_date.strftime('%Y-%m-%d')     
     end_date += "T04:00:00"
 
     weather_data = fetch_historical_weather_multiple(latitude, longitude, start_date, 
                                                      end_date,location_names=position_df['name'])
 
     keys = [x for x in weather_data.keys()]
-
     merge_wdf = pd.DataFrame()
     for key, label in zip(keys, position_df["labels"]):
         df = pd.DataFrame(weather_data[key])
         
-        new_columns = [f"{column}" for column in df.columns[0:2]] + [f"{column}_{label}" for column in df.columns[2:]]
+        new_columns = [f"{column}" for column in df.columns[0:1]] + [f"{column}_{label}" for column in df.columns[1:]]
         df.columns = new_columns
         df = df.drop(columns=[new_columns[-1]])                    ## drop the location, no need anymore
         df['time'] = pd.to_datetime(df['time'])                 ## convert time to pandas timestamp
         df = df.sort_values('time')   
-        if key == key[0]:
+        if key == keys[0]:
             merge_wdf = df
         else:
-            merge_wdf = pd.merge(merge_wdf, df, on=['Unnamed: 0', 'time'])
+            merge_wdf = pd.merge(merge_wdf, df, on=['time'])
+    merge_wdf = merge_wdf.dropna()
     return merge_wdf
 

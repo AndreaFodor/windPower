@@ -14,7 +14,7 @@ from typing import Tuple, List, Union, Dict
 
 def list_of_days(time_window: pd.DatetimeIndex) -> List[str]:
     """
-    Converts a DatetimeIndex into a list of day strings in 'yy-mm-dd' format.
+    Converts a DatetimeIndex into a list of day strings in 'yyyy-mm-dd' format.
 
     Args:
         time_window (pd.DatetimeIndex): A pandas DatetimeIndex representing the time window.
@@ -24,7 +24,7 @@ def list_of_days(time_window: pd.DatetimeIndex) -> List[str]:
     """
     assert isinstance(time_window, pd.DatetimeIndex), ("TypeError: "
                                 "time_window must be of type pandas.core.indexes.datetimes.DatetimeIndex.")
-    return [x.strftime('%y-%m-%d') for x in time_window]
+    return [x.strftime('%Y-%m-%d') for x in time_window]
 
 
 def plot(preds: List[float], true: Dict[str, float], mape: float, r2: float, pca_comp: int, n_nbr: int) -> None:
@@ -78,7 +78,7 @@ def make_yymmdd_format(df: pd.DataFrame) -> pd.DataFrame:
     try:
         new_df = df
         new_df.time = pd.to_datetime(new_df.time).dt.tz_localize(None)
-        new_df['YearMonthDay'] = new_df['time'].apply(lambda x: x.strftime('%y-%m-%d'))
+        new_df['YearMonthDay'] = new_df['time'].apply(lambda x: x.strftime('%Y-%m-%d'))
         new_df = new_df.drop(columns = ['MonthDay'])
         return new_df
     except:
