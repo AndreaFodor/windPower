@@ -86,7 +86,8 @@ def fetch_historical_weather_multiple(
 
 def weather_api_call(start_date, end_date):
     ## Setting up the required varibales to call the above function
-    position_df = pd.read_csv(r'../../data/raw_data/hydroquebec_wind_farms_in_service.csv')
+    file_path = os.path.join(os.path.dirname(__file__)) + '../../data/raw_data/hydroquebec_wind_farms_in_service.csv'
+    position_df = pd.read_csv(file_path)
     # Example: Montreal (45.5017° N, 73.5673° W)
     latitude = position_df['latitude']
     longitude = position_df['longitude']
