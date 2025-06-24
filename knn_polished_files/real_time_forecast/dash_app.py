@@ -2,9 +2,9 @@ import dash
 from dash import dcc, html, Input, Output, State
 import plotly.graph_objects as go
 import pandas as pd
-from kNN_real_time_script import kNN_forcast
+from kNN_real_time_script import kNN_forecast
 
-knn = kNN_forcast()
+knn = kNN_forecast()
 
 app = dash.Dash(__name__)
 
@@ -52,7 +52,7 @@ def update_forecast(n_clicks, start_date, window):
         return go.Figure(), error_msg  # Empty plot + error message
 
     # Valid input → make forecast
-    predicted, fig = knn.forecast()
+    fig = knn.forecast()
     end_date = pd.to_datetime(start_date) + pd.Timedelta(days=window-1)
     return fig, f"Forecast window is from {start_date} to {end_date.date()}"
 

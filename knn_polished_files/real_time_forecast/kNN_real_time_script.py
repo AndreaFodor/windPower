@@ -10,21 +10,36 @@ from sklearn.decomposition import PCA
 from datetime import date
 from real_time_weather_api import weather_api_call
 from hydroquebec.api import Hydro_quebec_data
-from typing import Tuple, List, Union, Dict
+from typing import Tuple, List, Union, Dict, Optional
 
 import plotly.graph_objects as go
 
 
-class kNN_forcast:
-    def __init__(self):
-        self.pca_comp = 35
-        self.n_nbr = 35
-        self.train_window = None
-        self.predict_window = None
-        self.train_df = None
-        self.predict_df = None
+class kNN_forecast:
+    def __init__(self, pca_comp: int = 35, n_nbr: int = 5):
+        # Hyperparameters
+        self.pca_comp: int = pca_comp               # Number of PCA components to use
+        self.n_nbr: int = n_nbr                     # Number of neighbors in kNN
 
-    def plot_plotly(self, preds: List[float], trained_on: List[float]) -> go.Figure:
+        # Time windows
+        self.train_window: Optional[pd.DatetimeIndex] = None   # Training date range
+        self.predict_window: Optional[pd.DatetimeIndex] = None # Prediction date range
+
+        # Input data
+        self.train_df: Optional[pd.DataFrame] = None           # Training data
+        self.predict_df: Optional[pd.DataFrame] = None         # Data for prediction
+
+        # Prediction output
+        self.predicted_values: Optional[List[float]] = None    # Final predicted values
+        self.true_vals_if_forcast_within_downloaded_data: Optional[Dict[str, float]] = None  
+                                                               # Actuals, if forecast falls within known data
+
+        # Data availability cutoff
+        self.data_already_downloaded_till: pd.Timestamp = pd.Timestamp('2025-06-20')  
+                                                               # Latest available data
+
+
+    def plot_plotly(self) -> go.Figure:
         """
         Plots historical (true values), then extends on the same plot forecasted daily power 
         output over a time range using Plotly.
@@ -38,15 +53,30 @@ class kNN_forcast:
         Returns:
             fig (go.Figure): A plotly figure of the true and predicted values 
         """
-        # Format prediction timestamps by prepending the last train date
+        fig = go.Figure()
+
+        trained_on = np.array(self.train_df.wind)
+        trained_on = [sum(trained_on[i:i+24]) for i in range(0,len(trained_on),24)]
+
+        preds = self.predicted_values
         train_window = self.train_window
         predict_window = self.predict_window
+
         predict_day_strings = [train_window[-1]] + list(predict_window)
         preds = [trained_on[-1]] + preds
 
-        fig = go.Figure()
+        if self.predict_window[-1] <= self.data_already_downloaded_till:
+            ## if forecast date range lies inside the downloaded data
+            ## that means, we have power data for this range. In this case,
+            ## we also plot the true values
+            fig.add_trace(go.Scatter(
+                x=predict_day_strings,
+                y=[trained_on[-1]] + self.true_vals_if_forcast_within_downloaded_data,
+                mode='lines',
+                name='True values',
+                line=dict(color='cyan')
+            ))
 
-        # Add training data trace
         fig.add_trace(go.Scatter(
             x=train_window,
             y=trained_on,
@@ -55,7 +85,6 @@ class kNN_forcast:
             line=dict(color='blue')
         ))
 
-        # Add predicted data trace
         fig.add_trace(go.Scatter(
             x=predict_day_strings,
             y=preds,
@@ -64,7 +93,6 @@ class kNN_forcast:
             line=dict(color='magenta', dash='dash')
         ))
 
-        # Format layout
         fig.update_layout(
             title="Plot of total power per day showing the trained data and the predicted data.",
             xaxis_title='Date',
@@ -138,30 +166,36 @@ class kNN_forcast:
         power_df['time'] = pd.to_datetime(power_df['time'])
         power_df['time'] = power_df['time'].apply(lambda x: x.floor('h'))
         power_df['time'] = power_df['time'].dt.tz_localize(None)
+        power_df = power_df.sort_values('time')
+
+        if self.predict_window[-1] <= self.data_already_downloaded_till:
+            ## if forecast window falls under the downloaded range, also save the the true values to plot
+            predict_window_hourly = pd.date_range(self.predict_window[0],
+                                            self.predict_window[-1].replace(hour=23), freq='h')
+            predict_window_power = power_df[power_df['time'].isin(predict_window_hourly)]
+            pw_power_hourly = np.array(predict_window_power.wind)
+            pw_power_daily = [sum(pw_power_hourly[i:i+24]) for i in range(0,len(pw_power_hourly),24)]
+            self.true_vals_if_forcast_within_downloaded_data = pw_power_daily
 
         train_window_hourly =  pd.date_range(train_window[0], 
                                                 train_window[-1].replace(hour=23), freq='h')
-        power_df = power_df[power_df['time'].isin(train_window_hourly)]
-        power_df = power_df.sort_values('time')
-
-        #Checking duplicate 'time' in the power dataset
+        power_df_train = power_df[power_df['time'].isin(train_window_hourly)]
+   
         
-        if (len(power_df[power_df['time'].duplicated()])  != 0
-            or len(power_df[power_df.isnull().any(axis=1)]) != 0) :
+        if (len(power_df_train[power_df_train['time'].duplicated()])  != 0
+            or len(power_df_train[power_df_train.isnull().any(axis=1)]) != 0) :
             print("Duplicates or NaN found in power data. Processing and cleaning data...")
-            power_df = self.duplicate_NaN_handle(power_df)
+            power_df_train = self.duplicate_NaN_handle(power_df_train)
 
-        data_already_downloaded_till = pd.Timestamp('2025-06-20')     ## the date till which we already have the date available, 
-                                                        ## setting '2025-06-20' for now
-        if train_window[-1] <= data_already_downloaded_till: 
+        if train_window[-1] <= self.data_already_downloaded_till: 
                                         ## if the predict window is before 'data_already_downloaded_till'
                                         ## we'll use the already downloaded data to train and predict.
                                         ## This will improve the runtime significantly as most of the data
                                         ## will already be downloaded apart from a few days
                                                             
-            return power_df
+            return power_df_train
         else:
-            start = data_already_downloaded_till + pd.Timedelta(1, unit='d')
+            start = self.data_already_downloaded_till + pd.Timedelta(1, unit='d')
             end = train_window[-1].strftime('%Y-%m-%d')            
             new_rows =  self.power_api_call(start,end)
             new_rows['time'] = pd.to_datetime(new_rows['time'], utc =True)
@@ -169,7 +203,7 @@ class kNN_forcast:
             new_rows['time'] = new_rows['time'].apply(lambda x: x.floor('h'))
             new_rows['time'] = new_rows['time'].dt.tz_localize(None)
 
-            new_power_df = pd.merge(power_df, new_rows, on=['time'])
+            new_power_df = pd.merge(power_df_train, new_rows, on=['time'])
             if (len(new_power_df[new_power_df['time'].duplicated()]) != 0
                 or len(new_power_df[new_power_df.isnull().any(axis=1)])):
                 print("Duplicates or NaN found in downloaded power data. Processing and cleaning data...")
@@ -247,14 +281,13 @@ class kNN_forcast:
             print("Duplicates or NaN found in weather data. Processing and cleaning data...")
             weather_df = self.duplicate_NaN_handle(weather_df)
 
-        data_already_downloaded_till = pd.Timestamp('2025-06-20') 
-        if time_window[-1] <= data_already_downloaded_till: ## if the predict window is before '2025-06-20'
+        if time_window[-1] <= self.data_already_downloaded_till: ## if the predict window is before '2025-06-20'
                                                             ## we'll use the already downloaded data to train and predict.
                                                             ## This will improve the runtime significantly as most of the data
                                                             ## will already be downloaded apart from a few days 
             return weather_df
         else:           ## if some rows don't exist, download them, merge and return the new dataframe
-            start = data_already_downloaded_till + pd.Timedelta(1,unit='d') 
+            start = self.data_already_downloaded_till + pd.Timedelta(1,unit='d') 
             end = time_window[-1].strftime('%Y-%m-%d')
             new_rows = weather_api_call(start, end)
             new_rows['time'] = pd.to_datetime(new_rows['time'], utc =True)
@@ -427,10 +460,9 @@ class kNN_forcast:
         knn.fit(pca_train, train_df.wind)
         pred = knn.predict(pca_predict)
 
-        trained_on = np.array(train_df.wind)
-        trained_on = [sum(trained_on[i:i+24]) for i in range(0,len(trained_on),24)] ## aggregate of each day 
+        predicted = [sum(pred[i:i+24]) for i in range(0, len(pred),24)] 
+        self.predicted_values = predicted 
 
-        predicted = [sum(pred[i:i+24]) for i in range(0, len(pred),24)] ## add all the hourly data to get the aggregate for each day
-        fig = self.plot_plotly(predicted, trained_on)       ## make the plot
+        fig = self.plot_plotly()       
         fig.show()
-        return predicted, fig
+        return fig
