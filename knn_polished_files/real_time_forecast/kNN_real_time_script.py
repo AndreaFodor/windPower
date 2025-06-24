@@ -114,9 +114,11 @@ def read_and_clean_power_data(train_window: pd.DatetimeIndex) -> pd.DataFrame:
     power_df = power_df.sort_values('time')
 
     #Checking duplicate 'time' in the power dataset
-    if len(power_df[power_df['time'].duplicated()]) != 0:
-        print("Duplicates detected in power data. Calling duplicate handling funcion...")
-        power_df = power_duplicate_handle(power_df)
+     
+    if (len(power_df[power_df['time'].duplicated()])  != 0
+        or len(power_df[power_df.isnull().any(axis=1)]) != 0) :
+        print("Duplicates or NaN found in power data. Processing and cleaning data...")
+        power_df =duplicate_NaN_handle(power_df)
 
     data_already_downloaded_till = pd.Timestamp('2025-06-20')     ## the date till which we already have the date available, 
                                                     ## setting '2025-06-20' for now
@@ -137,25 +139,33 @@ def read_and_clean_power_data(train_window: pd.DatetimeIndex) -> pd.DataFrame:
         new_rows['time'] = new_rows['time'].dt.tz_localize(None)
 
         new_power_df = pd.merge(power_df, new_rows, on=['time'])
-        if len(new_power_df[new_power_df['time'].duplicated()]) != 0:
-            print("Duplicates detected in downloaded power data. Calling duplicate handling funcion...")
-            new_power_df = power_duplicate_handle(new_power_df)
+        if (len(new_power_df[new_power_df['time'].duplicated()]) != 0
+            or len(new_power_df[new_power_df.isnull().any(axis=1)])):
+            print("Duplicates or NaN found in downloaded power data. Processing and cleaning data...")
+            new_power_df = duplicate_NaN_handle(new_power_df)
         return new_power_df
 
   
-def power_duplicate_handle(df: pd.DataFrame, time_window: pd.DatetimeIndex) -> pd.DataFrame:
+def duplicate_NaN_handle(df: pd.DataFrame) -> pd.DataFrame:
     """
     Handles duplicate timestamps in the power data.
 
     Args:
         df (pd.DataFrame): Power data with potential duplicate timestamps.
-        time_window (pd.DatetimeIndex): Time window for which data is being processed.
 
     Returns:
         pd.DataFrame: DataFrame with duplicates resolved.
     """
-    #body of the implementation here
-    return df
+    df = df.set_index('time').sort_index()
+    full_index = pd.date_range(start=df.index.min(), end=df.index.max(), freq='h')
+    
+    df = df[~df.index.duplicated(keep='first')]
+    df = df.reindex(full_index)
+
+    df = df.ffill()
+    df = df.bfill()
+
+    return df.reset_index().rename(columns={'index': 'time'})
 
 
 def power_api_call(start_date: str, end_date: str) -> pd.DataFrame:
@@ -202,10 +212,10 @@ def read_and_clean_weather_data(train_window: pd.DatetimeIndex, predict_window: 
     weather_df = weather_df[weather_df['time'].isin(time_window_hourly)]
     weather_df = weather_df.sort_values('time')
 
-    #Checking duplicate 'time' in the power dataset
-    if len(weather_df[weather_df['time'].duplicated()]) != 0:
-        print("Duplicates detected in weather data. Calling duplicate handling funcion...")
-        weather_df = weather_duplicate_handle(weather_df, time_window)
+    if (len(weather_df[weather_df['time'].duplicated()])  != 0
+        or len(weather_df[weather_df.isnull().any(axis=1)]) != 0) :
+        print("Duplicates or NaN found in weather data. Processing and cleaning data...")
+        weather_df = duplicate_NaN_handle(weather_df)
 
     data_already_downloaded_till = pd.Timestamp('2025-06-20') 
     if time_window[-1] <= data_already_downloaded_till: ## if the predict window is before '2025-06-20'
@@ -223,9 +233,10 @@ def read_and_clean_weather_data(train_window: pd.DatetimeIndex, predict_window: 
         new_rows['time'] = new_rows['time'].dt.tz_localize(None)
 
         new_weather_df = pd.merge(weather_df, new_rows, on= ['time'])
-        if len(new_weather_df[new_weather_df['time'].duplicated()]) != 0:
-            print("Duplicates detected in downloaded weather data. Calling duplicate handling funcion...")
-            new_weather_df = weather_duplicate_handle(new_weather_df, time_window)
+        if (len(new_weather_df[new_weather_df['time'].duplicated()]) != 0
+            or len(new_weather_df[new_weather_df.isnull().any(axis=1)])):
+            print("Duplicates or NaN found in downloaded weather data. Processing and cleaning data...")
+            new_weather_df = duplicate_NaN_handle(new_weather_df)
         return new_weather_df
 
     
