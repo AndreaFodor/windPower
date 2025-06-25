@@ -2,13 +2,14 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import os
+from pathlib import Path
 
 from sklearn.neighbors import KNeighborsRegressor
 from sklearn.preprocessing import StandardScaler
 from sklearn.pipeline import Pipeline
 from sklearn.decomposition import PCA
 from datetime import date
-from real_time_weather_api import weather_api_call
+from knn_model.real_time_forecast.real_time_weather_api import weather_api_call
 from hydroquebec.api import Hydro_quebec_data
 from typing import Tuple, List, Union, Dict, Optional
 
@@ -166,8 +167,10 @@ class kNN_forecast:
         Returns:
             pd.DataFrame: Cleaned DataFrame containing 'time' and 'wind' columns.
         """
+        repo_root = Path(__file__).resolve().parents[3]
         train_window = self.train_window
-        file_path = os.path.join(os.getcwd(), "already_downloaded_data\\power_data.csv")
+        file_path = os.path.join(repo_root, "2_modeling/knn_model/" \
+                        "real_time_forecast/already_downloaded_data/power_data.csv")
         power_df = pd.read_csv(file_path)[["time","wind"]]
 
         power_df['time'] = pd.to_datetime(power_df['time'])
@@ -265,7 +268,9 @@ class kNN_forecast:
         Returns:
             pd.DataFrame: Cleaned and complete weather data for the combined time window.
         """
-        file_path = os.path.join(os.getcwd(), "already_downloaded_data\\weather_data.csv")
+        repo_root = Path(__file__).resolve().parents[3]
+        file_path = os.path.join(repo_root, "2_modeling/knn_model/" \
+                        "real_time_forecast/already_downloaded_data/weather_data.csv")
         weather_df = pd.read_csv(file_path)
 
         train_window = self.train_window

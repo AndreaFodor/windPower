@@ -2,7 +2,7 @@ import dash
 from dash import dcc, html, Input, Output, State
 import plotly.graph_objects as go
 import pandas as pd
-from kNN_real_time_script import kNN_forecast
+from knn_model.real_time_forecast.kNN_real_time_script import kNN_forecast
 
 knn = kNN_forecast()
 

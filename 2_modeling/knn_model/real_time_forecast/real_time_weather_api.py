@@ -3,6 +3,7 @@ import requests
 import pandas as pd
 from typing import List, Dict, Optional
 import os
+from pathlib import Path
 
 
 
@@ -86,8 +87,9 @@ def fetch_historical_weather_multiple(
 
 def weather_api_call(start_date, end_date):
     ## Setting up the required varibales to call the above function
-    file_path = (os.path.join(os.getcwd(), 
-                '..\\..\\..\\1_data\\raw_data\\hydroquebec_wind_farms_in_service.csv'))
+    repo_root = Path(__file__).resolve().parents[3]
+    file_path = os.path.join(repo_root, 
+                '/1_data/raw_data/hydroquebec_wind_farms_in_service.csv')
     position_df = pd.read_csv(file_path)
     # Example: Montreal (45.5017° N, 73.5673° W)
     latitude = position_df['latitude']

@@ -3,6 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import plotly.graph_objects as go
 import os
+from pathlib import Path
 
 from sklearn.neighbors import KNeighborsRegressor
 from sklearn.preprocessing import StandardScaler
@@ -22,11 +23,10 @@ class kNN_Cross_Validation:
         mode: str = "Validation",
         feature_selection: str = "spd_cubed_div_temp",
         with_confidence_interval: bool = False,
-        no_iters: int = 50,
-        path: str = None
+        no_iters: int = 50
     ):
+        
         # Hyperparameters
-        self.path = path
         hyperparam_list_len = 5
         assert ((len(pca_comps) <= hyperparam_list_len) and 
                 (len(n_nbrs) <=hyperparam_list_len)), ("\nPlease provide the lists of pca components"
@@ -546,19 +546,19 @@ class kNN_Cross_Validation:
             f"and {test_window[-1].strftime('%Y-%m-%d')}\n")
 
 
-    def get_data(self) -> Tuple[pd.DataFrame, pd.DatetimeIndex, int, int]:
+    def get_data(self) -> pd.DataFrame:
         """
         Loads and preprocesses the main training dataframe and gets the forecast window.
 
         Returns:
-            Tuple containing:
-                - DataFrame with features (pd.DataFrame)
-                - Forecast window (pd.DatetimeIndex)
+            pd.DataFrame: DataFrame with relevant data
         """
+        current_file = Path(__file__).resolve()
+        repo_rot = current_file.parents[3]
         if self.mode == "Validation":         
-            file_path = self.path + "\\main_validation_dataframe.csv" 
+            file_path = os.path.join(repo_rot,"1_data/final_dataframes/main_validation_dataframe.csv")
         else:
-            file_path = self.path + "\\main_testing_dataframe.csv"
+            file_path = os.path.join(repo_rot,"1_data/final_dataframes/main_testing_dataframe.csv")     
         if self.feature_selection == "spd_cubed_div_temp": 
             df = self.speed_cubed_div_temp(self.make_yymmdd_format(pd.read_csv(file_path)))
         elif self.feature_selection == "speed":
@@ -595,7 +595,6 @@ class kNN_Cross_Validation:
                                                     pca_comp, n_nbr, test_window)
         
             if self.ci:
-                print("Running with iterations... This may take longer time.")
                 alpha = 0.95
                 lower, upper = 100 * (1 - alpha) / 2, 100 * (1 + alpha) / 2
                 no_days = len(test_window)
