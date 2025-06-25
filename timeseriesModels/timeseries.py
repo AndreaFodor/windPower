@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 from statsforecast.models import AutoARIMA
 from statsforecast import StatsForecast
 from sklearn.metrics import mean_squared_error as mse
+from sklearn.metrics import mean_absolute_error as mae
 from sklearn.metrics import mean_absolute_percentage_error as mape
 from sklearn.metrics import r2_score
 from seaborn import set_style
