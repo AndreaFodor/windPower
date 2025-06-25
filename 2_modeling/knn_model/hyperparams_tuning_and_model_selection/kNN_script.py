@@ -22,9 +22,11 @@ class kNN_Cross_Validation:
         mode: str = "Validation",
         feature_selection: str = "spd_cubed_div_temp",
         with_confidence_interval: bool = False,
-        no_iters: int = 50
+        no_iters: int = 50,
+        path: str = None
     ):
         # Hyperparameters
+        self.path = path
         hyperparam_list_len = 5
         assert ((len(pca_comps) <= hyperparam_list_len) and 
                 (len(n_nbrs) <=hyperparam_list_len)), ("\nPlease provide the lists of pca components"
@@ -554,11 +556,9 @@ class kNN_Cross_Validation:
                 - Forecast window (pd.DatetimeIndex)
         """
         if self.mode == "Validation":         
-            file_path = os.path.join(os.getcwd(), 
-                        "..\\..\\..\\1_data\\final_dataframes\\main_validation_dataframe.csv") 
+            file_path = self.path + "\\main_validation_dataframe.csv" 
         else:
-            file_path = os.path.join(os.getcwd(), 
-                        "..\\..\\..\\1_data\\final_dataframes\\main_testing_dataframe.csv")
+            file_path = self.path + "\\main_testing_dataframe.csv"
         if self.feature_selection == "spd_cubed_div_temp": 
             df = self.speed_cubed_div_temp(self.make_yymmdd_format(pd.read_csv(file_path)))
         elif self.feature_selection == "speed":
@@ -568,7 +568,7 @@ class kNN_Cross_Validation:
         return df
 
 
-    def run(self) -> None:
+    def run(self, display: bool = True) -> None:
         """
         Main function to load data, validate input, run kNN forecasting, and compute evaluation metrics.
         If one combination of (pca_comp, n_nbr) is given, it updates that model's prediction, scores, 
@@ -576,6 +576,8 @@ class kNN_Cross_Validation:
         If multiple combinations are given, it runs a manual grid search and updates all predictions, 
         CV scores, and the plots for the best combinations in terms of MAPE and R2.
 
+        Args:
+            display (bool): Boolen value, determines if plots should be displayed automatically.
         """
         df = self.get_data()
         test_window  = self.test_window
@@ -633,7 +635,8 @@ class kNN_Cross_Validation:
 
                 self.preds, self.mape, self.r2, self.mae = preds, mape, r2, mae
                 self.figure = self.plot(preds, true_agg, mape, r2, mae, pca_comp, n_nbr)
-            self.figure.show()
+            if display:
+                self.figure.show()
 
         else:
             hyperparam_comb_index = {}
@@ -686,9 +689,13 @@ class kNN_Cross_Validation:
                                     cv_r2s[best_mae_idx], cv_maes[best_mae_idx],  
                                     hyperparam_comb_index[best_mae_idx][0], 
                                     hyperparam_comb_index[best_mae_idx][1])
-            self.fig_best_MAPE.show()
-            self.fig_best_r2.show()
-            self.fig_best_mae.show()
+            if display:
+                print("Best in terms of MAPE:")
+                self.fig_best_MAPE.show()
+                print("Best in terms of R2:")               
+                self.fig_best_r2.show()
+                print("Best in terms of MAE:")
+                self.fig_best_mae.show()
 
 
 
