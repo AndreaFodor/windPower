@@ -15,6 +15,7 @@ dependencies:
   - xgboost = 2.1.4
   - pmdarima >= 2.0
   - interpret
+  - statsforecast = 2.0.1
   - pip:
       - cinemagoer
       - lxml

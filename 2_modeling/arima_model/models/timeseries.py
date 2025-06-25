@@ -2,16 +2,18 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import statsmodels.api as sm
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from statsforecast.models import AutoARIMA
 from statsforecast import StatsForecast
 from sklearn.metrics import mean_squared_error as mse
+from sklearn.metrics import mean_absolute_error as mae
 from sklearn.metrics import mean_absolute_percentage_error as mape
 from sklearn.metrics import r2_score
+import plotly.graph_objects as go
 from seaborn import set_style
 set_style("whitegrid")
 
-def load_training_df(path='../data/final_dataframes/main_training_dataframe.csv'):
+def load_training_df(path='../../1_data/final_dataframes/main_validation_dataframe.csv'):
     """
     Load the training dataframe and aggregate the data by day.
 
@@ -70,8 +72,9 @@ class ARIMAxPredictions():
         self.confidence_level = [90]
         self.models = [AutoARIMA()]
         self.df_train = None
+        self.forecastarr = []
 
-    def load_training_data(self, path='../data/final_dataframes/main_training_dataframe.csv', datetime_column='index', predict_column='Wind', exogenus_column='mean_windspeed'):
+    def load_training_data(self, path='../../1_data/final_dataframes/main_validation_dataframe.csv', datetime_column='index', predict_column='Wind', exogenus_column='mean_windspeed'):
         """
         path: path to training dataframe, needs to have at least 60 days of data available prior to prediction date
         datetime_column: name of the column in df containing timestamps (can be 'index')
@@ -130,7 +133,8 @@ class ARIMAxPredictions():
                            level=self.confidence_level,
                            )
         return fcst
-    def test_forecast(self, start_date, end_date):
+    
+    def forecast_range(self, start_date, end_date):
         if not isinstance(start_date, pd.Timestamp):
             try:
                 start_date = pd.Timestamp(start_date)
@@ -146,21 +150,124 @@ class ARIMAxPredictions():
         
         if self.df_train is None:
             self.load_training_data()
-        forecast = []
         for date in pd.date_range(start=start_date, end=(end_date), freq='D'):
             fcst = self.forecast(date)
-            forecast.append(fcst.AutoARIMA.values)
-        cmape = mape(self.df_train[(self.df_train['ds']>=start_date) & (self.df_train['ds']<=end_date)].y.values, forecast)
-        cr2 = r2_score(self.df_train[(self.df_train['ds']>=start_date) & (self.df_train['ds']<=end_date)].y.values, forecast)
-        print('MAPE: ', cmape)  
-        print('r2 ', cr2)  
+            self.forecastarr.append(fcst.AutoARIMA.values)
+        cmape = mape(self.df_train[(self.df_train['ds']>=start_date) & (self.df_train['ds']<=end_date)].y.values, self.forecastarr)
+        cmae = mae(self.df_train[(self.df_train['ds']>=start_date) & (self.df_train['ds']<=end_date)].y.values, self.forecastarr)
+        cr2 = r2_score(self.df_train[(self.df_train['ds']>=start_date) & (self.df_train['ds']<=end_date)].y.values, self.forecastarr)
+        print('Mean absolute percentage error: ', cmape)  
+        print('Mean absolute error: ', cmae)
+        print('r2 score: ', cr2)  
 
         plt.plot(self.df_train[(self.df_train['ds']<=start_date) & (self.df_train['ds']>=(start_date - pd.Timedelta(days=self.training_interval + 1)))].ds.values, self.df_train[(self.df_train['ds']<=date) & (self.df_train['ds']>=(date - pd.Timedelta(days=self.training_interval + 1)))].y.values, label = 'training data')
         plt.plot(self.df_train[(self.df_train['ds']>=start_date) & (self.df_train['ds']<=end_date)].ds.values, self.df_train[(self.df_train['ds']>=start_date) & (self.df_train['ds']<=end_date)].y.values, label = 'True value')
-        plt.plot(self.df_train[(self.df_train['ds']>=start_date) & (self.df_train['ds']<=end_date)].ds.values, forecast, label = 'Prediction')
+        plt.plot(self.df_train[(self.df_train['ds']>=start_date) & (self.df_train['ds']<=end_date)].ds.values, self.forecastarr, label = 'Prediction')
         plt.xlabel('Date')
         plt.ylabel('Wind power per day [MW]')
         plt.xticks(rotation=45)
         plt.legend()
 
+        self.plot_plotly(start_date, end_date)
+
         return cmape, cr2
+
+
+    def set_input(self, start_date: str, forecast_window: int) -> str:
+        """
+        To set the input data coming from the dash app.
+        Combines cleaned power and weather data for both training and prediction periods.
+        Finally updates variables self.train_window, self.train_df and self.predict_df.
+
+        Args:
+            start_date (str): Start date from the prediction window in YYYY-MM-DD format.
+            forecast_window (int): Forcast window length.
+
+        Returns:
+            str: Error messages for different situations
+        """
+        try:
+            start_date = pd.to_datetime(start_date)
+            earliest_allowed_date = pd.Timestamp('2024-08-20')
+            latest_allowed_date = pd.Timestamp(str(date.today()))
+
+            if not (earliest_allowed_date <= start_date <= latest_allowed_date):
+                return (f"Error: Please input a date between "
+                        f"{earliest_allowed_date.strftime('%Y-%m-%d')} and "
+                        f"{latest_allowed_date.strftime('%Y-%m-%d')}.")
+
+            window_length = 3
+            if not (1 <= forecast_window <= window_length):
+                return f"Error: Forecast window should be an integer between 1 and {window_length}."
+
+            # If valid, compute predict_window
+            end_date = start_date + pd.Timedelta(days=forecast_window - 1)
+            self.horizon = pd.date_range(start=start_date, end=end_date, freq='d')
+            self.get_train_window()
+            power_df = self.read_and_clean_power_data()          ## already only has the training data
+            weather_df = self.read_and_clean_weather_data()
+            
+            weather_df_train = weather_df[weather_df['time'].isin(pd.date_range(self.train_window[0], 
+                                                    self.train_window[-1].replace(hour=23), freq='h'))]
+            self.train_df = pd.merge(power_df, weather_df_train, on=['time'])
+
+            self.predict_df= weather_df[weather_df['time'].isin(pd.date_range(self.predict_window[0], 
+                                                    self.predict_window[-1].replace(hour=23), freq='h'))]  
+
+            # Return None or success message
+            return ""
+
+        except Exception as e:
+            return f"Unexpected error: {str(e)}"
+
+
+    def plot_plotly(self, start_date, end_date) -> go.Figure:
+        fig = go.Figure()
+        
+        date_range = pd.date_range(start=start_date, end=(end_date), freq='D')
+        trained_on = self.df_train[(self.df_train['ds']>=start_date) & (self.df_train['ds']<=end_date)].y.values
+
+        # if self.predict_window[-1] <= self.data_already_downloaded_till:
+        #     ## if forecast date range lies inside the downloaded data
+        #     ## that means, we have power data for this range. In this case,
+        #     ## we also plot the true values
+        #     fig.add_trace(go.Scatter(
+        #         x=date_range,
+        #         y=[trained_on[-1]] + self.true_vals_if_forcast_within_downloaded_data,
+        #         mode='lines',
+        #         name='True values',
+        #         line=dict(color='cyan')
+        #     ))
+
+        fig.add_trace(go.Scatter(
+            x=date_range,
+            y=trained_on,
+            mode='lines',
+            name='Trained data',
+            line=dict(color='blue')
+        ))
+
+        fig.add_trace(go.Scatter(
+            x=date_range,
+            y=self.forecastarr,
+            mode='lines',
+            name='Predicted',
+            line=dict(color='magenta', dash='dash')
+        ))
+
+        fig.update_layout(
+            title="Plot of total power per day showing the training data and the predicted data.",
+            xaxis_title='Date',
+            yaxis_title='Total power per day (in MW)',
+            xaxis=dict(
+                tickformat='%Y-%m-%d',
+                tickangle=45,
+                tickmode='array',
+                # tickvals=pd.date_range(start=train_window[0], end=predict_day_strings[-1], periods=12)
+            ),
+            legend=dict(x=0.01, y=0.99)
+        )
+        fig.show()
+
+        return fig
+
