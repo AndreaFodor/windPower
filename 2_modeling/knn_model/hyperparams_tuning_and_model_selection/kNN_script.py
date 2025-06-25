@@ -20,15 +20,27 @@ class kNN_Cross_Validation:
         n_nbrs: List[int] = [5],
         days_to_train_on: int = 60,
         mode: str = "Validation",
-        feature_selection: str = "spd_cubed_div_temp"
+        feature_selection: str = "spd_cubed_div_temp",
+        with_confidence_interval: bool = False,
+        no_iters: int = 50
     ):
         # Hyperparameters
         hyperparam_list_len = 5
         assert ((len(pca_comps) <= hyperparam_list_len) and 
                 (len(n_nbrs) <=hyperparam_list_len)), ("\nPlease provide the lists of pca components"
                 f" and kNN neighbours of length less than {hyperparam_list_len} to reduce run-time.")
+        
+        if with_confidence_interval:
+            assert ((len(pca_comps) <= 1) and (len(n_nbrs) <=1)), ("\n To reduce run-time, confidence "
+            "interval calculation is implented only with one hyperparameter combination pair. "
+            "Please provide single hyperparameter pair (pca_comp, n_nbr).")
+            assert (5 <= no_iters <= 100), ("\n To reduce run-time, number of iterations is limited"
+            "to a value between 5 and 100.")
+            self.no_iters = no_iters
+        self.ci = with_confidence_interval
         self.pca_comps: List[int] = pca_comps  # List of PCA components to try
         self.n_nbrs: List[int] = n_nbrs        # List of kNN neighbor counts to try
+
 
         assert (10 <= days_to_train_on <= 1095), ("Please input training window "
                         "length (in days) to be an integer between 10 and 1095")
@@ -45,11 +57,17 @@ class kNN_Cross_Validation:
         self.test_window: Optional[pd.DatetimeIndex] = None
 
         # Used when there's only a single (PCA, kNN) combination
-        self.preds: Optional[List[float]] = None
+        self.preds: Optional[Union[List[float], List[List[float]]]] = None  #List[List[float]] in case with_ci is True
         self.true_aggregates: Optional[Dict[str, float]] = None
         self.mape: Optional[float] = None
         self.r2: Optional[float] = None
         self.mae: Optional[float] = None
+
+        self.pred_conf_intervals: Optional[List[(float,float)]] = None
+        self.mape_conf_intervals: Optional[Tuple[float,float]] = None
+        self.r2_conf_intervals: Optional[Tuple[float,float]] = None
+        self.mae_conf_intervals: Optional[Tuple[float,float]] = None
+
         self.figure: Optional[go.Figure] = None
 
         # Used when testing multiple hyperparameter combinations
@@ -83,7 +101,7 @@ class kNN_Cross_Validation:
         return [x.strftime('%Y-%m-%d') for x in time_window]
 
 
-    def plot(self, preds: List[float], true: Dict[str, float], 
+    def plot(self, preds: Union[List[float], List[List[float]]], true: Dict[str, float], 
              mape: float, r2: float, mae: float, pca_comp: int, n_nbr: int) -> go.Figure:
         """
         Returns a Plotly figure of true vs predicted values for a prediction time window,
@@ -117,13 +135,49 @@ class kNN_Cross_Validation:
         ))
 
         # Predicted values trace
-        fig.add_trace(go.Scatter(
-            x=days,
-            y=preds,
-            mode='lines',
-            name='Predicted',
-            line=dict(color='cyan', dash='dash')
-        ))
+        if self.ci:
+            preds = np.array(preds)
+            mean_preds = np.mean(preds, axis=1)
+            lower = [x for (x,y) in self.pred_conf_intervals]
+            upper = [y for (x,y) in self.pred_conf_intervals]
+            # CI lower bound (invisible)
+            fig.add_trace(go.Scatter(
+                x=days,
+                y=lower,
+                mode='lines',
+                name='Lower Bound',
+                line=dict(color='lightblue'),
+                showlegend= False
+            ))
+
+            # CI upper bound (filled to previous trace)
+            fig.add_trace(go.Scatter(
+                x=days,
+                y=upper,
+                mode='lines',
+                name='95% CI',
+                line=dict(color='lightblue'),
+                fill='tonexty',
+                fillcolor='rgba(173, 216, 230, 0.3)',  
+            ))
+
+            # Mean prediction
+            fig.add_trace(go.Scatter(
+                x=days,
+                y=mean_preds,
+                mode='lines',
+                name='Predicted (mean)',
+                line=dict(color='cyan', dash='dash')
+            ))
+
+        else:   # single prediction vector
+            fig.add_trace(go.Scatter(
+                x=days,
+                y=preds,
+                mode='lines',
+                name='Predicted',
+                line=dict(color='cyan', dash='dash')
+            ))
 
         # Annotated box as text annotation
         annotation_text = f"PCA: {pca_comp} | kNN nbr: {n_nbr} | MAPE: {mape:.3f} | R²: {r2:.3f} | MAE: {mae:.1f}"
@@ -345,7 +399,7 @@ class kNN_Cross_Validation:
 
     def knn_using_particular_hyperparams_and_test_window(self, 
         df: pd.DataFrame, pca_comp: int, n_nbr: int, test_window: pd.DatetimeIndex
-    ) -> Tuple[List[float], List[float]]:
+    ) -> Union[List[float], List[List[float]]]:
         """
         For each day in the test window, trains a kNN model on historic data leading up to the day
         before the chosen day and predicts wind output for the chosen day. Stores and returns these
@@ -358,18 +412,33 @@ class kNN_Cross_Validation:
             test_window (pd.DatetimeIndex): Days to test on.
 
         Returns:
-            List[float]: Predicted wind outputs per day.
+            Union[List[float], List[List[float]]]:
+                - Predictions per day by running the model once per day if self.ci is False (default).
+                - All the predictions per day by running the model 50 times per day if self.ci is True
         """
         preds = []
+        if self.ci:
+            print("Note: Running with iterations... This may take longer time.")
 
         for test_day in test_window:
             test_day = pd.date_range(test_day,test_day,freq='d') ## pd.Timestamp to pd.DatetimeIndex for function call
             
             train_window = self.get_train_window(test_day)   
             df_train, df_test = self.extract_train_test_data(df, train_window, test_day)
-
-            pred = self.kNN_on_particular_train_test_splits(df_train, df_test, pca_comp, n_nbr)
-            preds.append(pred[0])
+            if not self.ci:
+                pred = self.kNN_on_particular_train_test_splits(df_train, df_test, pca_comp, n_nbr)
+                preds.append(pred[0])
+            else:
+                ## to calculate CI for an estimator, for each day, we run the model 50 times with 
+                ## each time randomly sampling (with replacement, i.e. bootstrapping) 30 days 
+                ## (30 times 24 data points) of data out of training data set df_train for that day.
+                preds_for_day = []
+                for i in range(self.no_iters):
+                    df_train_resampled = df_train.sample(frac=0.5, replace=True)
+                    pred_iter = self.kNN_on_particular_train_test_splits(df_train_resampled, 
+                                                                         df_test, pca_comp, n_nbr)
+                    preds_for_day.append(pred_iter[0])
+                preds.append(preds_for_day)               
 
         return preds
 
@@ -398,10 +467,7 @@ class kNN_Cross_Validation:
 
     def input(self) -> None:
         """
-        Interactively prompts the user to input a forecast window.
-
-        Returns:
-            pd.DatetimeIndex: A pandas date range between selected start and end date.
+        Interactively prompts the user to input a prediction window.
         """
         earliest_allowed_date = (pd.Timestamp(year=2019, month=1, day=1) 
                                  + pd.Timedelta(self.days_to_train_on, unit='d'))
@@ -429,6 +495,44 @@ class kNN_Cross_Validation:
         
         window = int(input("Input forecast window: "))
         assert 1 <= window <= window_length, f"ValueError: Input should be an integer between 1 or {window_length}."
+
+        end_date = start_date + pd.Timedelta(window-1, unit='d')
+        test_window = pd.date_range(start=start_date, end=end_date, freq='d')
+
+        self.test_window = test_window
+        self.predict_window_validity()
+        
+        print(f"\nYour forecast window is days between: {test_window[0].strftime('%Y-%m-%d')} "
+            f"and {test_window[-1].strftime('%Y-%m-%d')}\n")
+
+
+    def manual_input(self, start_date: str, window:int) -> None:
+        """
+        Manual user input for the prediction window, otherwise same functionality as input().
+
+        Args:
+            start_date (str): Start date of prediction window in the format YYYY-MM-DD
+            window (int): Length of the prediction window.
+        """
+        earliest_allowed_date = (pd.Timestamp(year=2019, month=1, day=1) 
+                                 + pd.Timedelta(self.days_to_train_on, unit='d'))
+        if self.mode == "Validation":
+            latest_allowed_date = pd.Timestamp(year=2022, month=12, day=31)
+        else:
+            latest_allowed_date = pd.Timestamp(year=2023, month=12, day=31)
+
+        try:    
+            start_date = pd.Timestamp(start_date)
+            assert (earliest_allowed_date <= start_date <= latest_allowed_date), ("Please input a date"
+                    f"between {earliest_allowed_date.strftime('%Y-%m-%d')}"
+                    f" and {latest_allowed_date.strftime('%Y-%m-%d')}")
+        except ValueError:
+            raise AssertionError(f"Invalid date: {start_date}.")
+
+        time_diff = latest_allowed_date - start_date 
+        window_length = min(365, time_diff.days+1)
+        assert 1 <= window <= window_length, (f"ValueError: Input should be an "
+                                              f"integer between 1 or {window_length}.")
 
         end_date = start_date + pd.Timedelta(window-1, unit='d')
         test_window = pd.date_range(start=start_date, end=end_date, freq='d')
@@ -487,13 +591,48 @@ class kNN_Cross_Validation:
             n_nbr = n_nbrs[0]
             preds = self.knn_using_particular_hyperparams_and_test_window(df, 
                                                     pca_comp, n_nbr, test_window)
+        
+            if self.ci:
+                print("Running with iterations... This may take longer time.")
+                alpha = 0.95
+                lower, upper = 100 * (1 - alpha) / 2, 100 * (1 + alpha) / 2
+                no_days = len(test_window)
+                no_iter = self.no_iters
 
-            mape= mean_absolute_percentage_error(y_pred = preds, y_true = true_aggregates)
-            r2 = r2_score(y_pred = preds, y_true = true_aggregates)
-            mae = mean_absolute_error(y_pred=preds, y_true= true_aggregates)
+                preds = np.array(preds)
+                mapes_per_iter= [mean_absolute_percentage_error(y_pred = preds[:,i], 
+                                            y_true = true_aggregates) for i in range(no_iter)]
+                r2s_per_iter = [r2_score(y_pred = preds[:,i], 
+                                            y_true = true_aggregates) for i in range(no_iter)]
+                maes_per_iter = [mean_absolute_error(y_pred = preds[:,i], 
+                                            y_true = true_aggregates) for i in range(no_iter)]
 
-            self.preds, self.mape, self.r2, self.mae = preds, mape, r2, mae
-            self.figure = self.plot(preds, true_agg, mape, r2, mae, pca_comp, n_nbr)
+                mape_mean = np.mean(mapes_per_iter)
+                r2_mean = np.mean(r2s_per_iter)
+                mae_mean = np.mean(maes_per_iter) 
+
+                self.pred_conf_intervals = [(np.percentile(preds, lower, axis=1)[i], 
+                                             np.percentile(preds, upper, axis=1)[i]) for i in range(no_days)]
+                self.mape_conf_intervals = (np.percentile(mapes_per_iter, lower), 
+                                            np.percentile(mapes_per_iter, upper))
+                self.r2_conf_intervals = (np.percentile(r2s_per_iter, lower), 
+                                            np.percentile(r2s_per_iter, upper))
+                self.mae_conf_intervals = (np.percentile(maes_per_iter, lower), 
+                                            np.percentile(maes_per_iter, upper))
+                print(f"Error score: mean MAPE = {mape_mean:.3f}, mean R2= {r2_mean:.3f}, " 
+                      f"mean MAE = {mae_mean}.")
+                print(f"Confidence interval for MAPE: {self.mape_conf_intervals}.")
+                print(f"Confidence interval for R2: {self.r2_conf_intervals}.")
+                print(f"Confidence interval for MAE: {self.mae_conf_intervals}.")
+                self.preds, self.mape, self.r2, self.mae = preds, mape_mean, r2_mean, mae_mean
+                self.figure = self.plot(preds, true_agg, mape_mean, r2_mean, mae_mean, pca_comp, n_nbr)
+            else:
+                mape= mean_absolute_percentage_error(y_pred = preds, y_true = true_aggregates)
+                r2 = r2_score(y_pred = preds, y_true = true_aggregates)
+                mae = mean_absolute_error(y_pred=preds, y_true= true_aggregates)
+
+                self.preds, self.mape, self.r2, self.mae = preds, mape, r2, mae
+                self.figure = self.plot(preds, true_agg, mape, r2, mae, pca_comp, n_nbr)
             self.figure.show()
 
         else:
