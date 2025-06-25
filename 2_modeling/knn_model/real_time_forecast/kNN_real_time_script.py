@@ -496,10 +496,13 @@ class kNN_forecast:
                                     end= predict_start_date - pd.Timedelta(1, unit='d'), freq='d')   
 
 
-    def forecast(self) -> go.Figure:
+    def forecast(self, display: bool = True) -> go.Figure:
         """
         The main method to call to forecast: runs the kNN pipeline on weather and power data: 
         reads, preprocesses, trains, forecasts, and plots.
+
+        Args:
+            display (bool): Flag deciding to display the plot.
 
         """
 
@@ -525,5 +528,6 @@ class kNN_forecast:
 
         fig = self.plot_plotly()
         self.figure = fig       
-        fig.show()
+        if display:
+            fig.show()
 

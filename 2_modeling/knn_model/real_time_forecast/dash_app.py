@@ -17,13 +17,13 @@ app.layout = html.Div([
         id='start-date-picker',
         min_date_allowed=pd.to_datetime('2024-08-20'),
         max_date_allowed=pd.to_datetime('2025-06-24'),
-        date='2025-04-02'
+        date=None
     ),
 
     html.Br(),
 
     html.Label("Forecast Window (in days)"),
-    dcc.Input(id='forecast-window', type='number', min=1, max=3, value=2),
+    dcc.Input(id='forecast-window', type='number', min=1, max=3, value= None),
 
     html.Br(), html.Br(),
 
@@ -52,7 +52,8 @@ def update_forecast(n_clicks, start_date, window):
         return go.Figure(), error_msg  # Empty plot + error message
 
     # Valid input → make forecast
-    fig = knn.forecast()
+    knn.forecast(display=False)
+    fig = knn.figure
     end_date = pd.to_datetime(start_date) + pd.Timedelta(days=window-1)
     return fig, f"Forecast window is from {start_date} to {end_date.date()}"
 
