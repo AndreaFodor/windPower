@@ -8,7 +8,7 @@ from sklearn.neighbors import KNeighborsRegressor
 from sklearn.preprocessing import StandardScaler
 from sklearn.pipeline import Pipeline
 from sklearn.decomposition import PCA
-from sklearn.metrics import mean_absolute_percentage_error, r2_score
+from sklearn.metrics import mean_absolute_percentage_error, r2_score, mean_absolute_error
 from typing import Tuple, List, Union, Dict, Optional
 
 
@@ -19,13 +19,27 @@ class kNN_Cross_Validation:
         pca_comps: List[int] = [35],
         n_nbrs: List[int] = [5],
         days_to_train_on: int = 60,
-        mode: str = "Validation"
+        mode: str = "Validation",
+        feature_selection: str = "spd_cubed_div_temp"
     ):
         # Hyperparameters
+        hyperparam_list_len = 5
+        assert ((len(pca_comps) <= hyperparam_list_len) and 
+                (len(n_nbrs) <=hyperparam_list_len)), ("\nPlease provide the lists of pca components"
+                f" and kNN neighbours of length less than {hyperparam_list_len} to reduce run-time.")
         self.pca_comps: List[int] = pca_comps  # List of PCA components to try
         self.n_nbrs: List[int] = n_nbrs        # List of kNN neighbor counts to try
+
+        assert (10 <= days_to_train_on <= 1095), ("Please input training window "
+                        "length (in days) to be an integer between 10 and 1095")
         self.days_to_train_on: int = days_to_train_on  # Days to use for training in each CV fold
+        assert (mode in ["Validation","Testing"]), ("Parameter mode must be in "
+                                                       " [\"Validation\" or \"Testing\"].")
         self.mode: str = mode  # Either "Validation" or "Testing"
+        assert (feature_selection in ["spd_cubed_div_temp", "speed", "speed_cubed"]), ("Parameter"
+        " feature_selection must be in [\"spd_cubed_div_temp\", \"speed\", \"speed_cubed\"].")
+        self.feature_selection: str = feature_selection 
+                        # Either "spd_cubed_div_temp", "speed", "speed_cubed"
 
         # Prediction/test window (to be set later by the user)
         self.test_window: Optional[pd.DatetimeIndex] = None
@@ -35,6 +49,7 @@ class kNN_Cross_Validation:
         self.true_aggregates: Optional[Dict[str, float]] = None
         self.mape: Optional[float] = None
         self.r2: Optional[float] = None
+        self.mae: Optional[float] = None
         self.figure: Optional[go.Figure] = None
 
         # Used when testing multiple hyperparameter combinations
@@ -42,13 +57,15 @@ class kNN_Cross_Validation:
         self.hyperparam_comb_preds: Optional[List[List[float]]] = None      # Preds for each hyperparam combo
         self.cv_mapes: Optional[List[float]] = None                         # MAPE scores across CV folds
         self.cv_r2s: Optional[List[float]] = None                           # R² scores across CV folds
+        self.cv_maes: Optional[List[float]] = None                             # MAE scores across CV folds
         self.best_MAPE_idx: Optional[int] = None                            # Index of best MAPE result
         self.best_r2_idx: Optional[int] = None                              # Index of best R² result
+        self.best_mae_idx: Optional[int] = None                             # Index of beest MAE result
 
         # Plotly figures for best results
-        self.fig_best_MAPE: Optional[go.Figure] = None                      # For best combination MAPE
-        self.fig_best_r2: Optional[go.Figure] = None                        # For best combination R²
-
+        self.fig_best_MAPE: Optional[go.Figure] = None     # For best combination in terms ofMAPE
+        self.fig_best_r2: Optional[go.Figure] = None       # For best combination in terms of R²
+        self.fig_best_mae: Optional[go.Figure] = None      # For best combination in terms of MAE
         
 
     def list_of_days(self, time_window: pd.DatetimeIndex) -> List[str]:
@@ -67,7 +84,7 @@ class kNN_Cross_Validation:
 
 
     def plot(self, preds: List[float], true: Dict[str, float], 
-             mape: float, r2: float, pca_comp: int, n_nbr: int) -> go.Figure:
+             mape: float, r2: float, mae: float, pca_comp: int, n_nbr: int) -> go.Figure:
         """
         Returns a Plotly figure of true vs predicted values for a prediction time window,
         annotated with MAPE and R² scores and model parameters.
@@ -78,6 +95,7 @@ class kNN_Cross_Validation:
                                      aggregate power for the day as value.
             mape (float): Mean Absolute Percentage Error.
             r2 (float): R² score.
+            mae (float): MAE score
             pca_comp (int): PCA component used for the model.
             n_nbr (int): Number of kNN neighbours used for the model. 
 
@@ -108,17 +126,17 @@ class kNN_Cross_Validation:
         ))
 
         # Annotated box as text annotation
-        annotation_text = f"PCA: {pca_comp} | kNN nbr: {n_nbr} | MAPE: {mape:.3f} | R²: {r2:.3f}"
+        annotation_text = f"PCA: {pca_comp} | kNN nbr: {n_nbr} | MAPE: {mape:.3f} | R²: {r2:.3f} | MAE: {mae:.1f}"
         
         fig.add_annotation(
             text=annotation_text,
             xref="paper", yref="paper",
-            x=0.38, y=0.95,
+            x=0.5, y=0.95,
             showarrow=False,
             font=dict(size=12),
             align='left',
             bgcolor="wheat",
-            opacity=0.8
+            opacity=0.6
         )
 
         # X ticks: subsample like matplotlib version
@@ -175,9 +193,7 @@ class kNN_Cross_Validation:
         for i in range(1, 40):
             spd_col = f'wind_speed_10m_{i}'
             temp_col = f'temperature_2m_{i}'
-
-            final_col = (df[spd_col] ** 3)/ (df[temp_col].values + 273)
-            
+            final_col = (df[spd_col] ** 3)/ (df[temp_col].values + 273)     
             new_cols.append(pd.DataFrame({
                 f'{spd_col}_cubed_div_temp': final_col
             }))
@@ -188,6 +204,33 @@ class kNN_Cross_Validation:
                                     [f'relative_humidity_2m_{i}' for i in range(1,40)], errors='ignore')] 
                                     + new_cols, axis=1)
         return df_new.copy()
+
+    def speed_cubed(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Calculates (wind speed)^3 for each farm and adds these as new columns. 
+        Drops the original weather columns.
+
+        Args:
+            df (pd.DataFrame): Input DataFrame with wind speed and temperature columns.
+
+        Returns:
+            pd.DataFrame: Modified DataFrame with new features and dropped originals.
+        """  
+        new_cols = []
+        for i in range(1, 40):
+            spd_col = f'wind_speed_10m_{i}'
+            final_col = df[spd_col] ** 3
+            
+            new_cols.append(pd.DataFrame({
+                f'{spd_col}_cubed': final_col
+            }))
+        df_new = pd.concat([df.drop(columns= [f'wind_speed_10m_{i}' for i in range(1, 40)] +
+                                    [f'temperature_2m_{i}' for i in range(1,40)] +
+                                    [f'wind_direction_10m_{i}' for i in range(1,40)]+
+                                    [f'relative_humidity_2m_{i}' for i in range(1,40)], errors='ignore')] 
+                                    + new_cols, axis=1)
+        return df_new.copy()
+    
 
 
     def true_aggregate_per_day(self, df: pd.DataFrame, time_window: pd.DatetimeIndex) -> Dict[str, float]:
@@ -406,30 +449,29 @@ class kNN_Cross_Validation:
                 - DataFrame with features (pd.DataFrame)
                 - Forecast window (pd.DatetimeIndex)
         """
-        if self.mode == "Validation":          
-            file_path = os.path.join(os.path.dirname(__file__), "../../data/final_dataframes/main_validation_dataframe.csv")
-        elif self.mode == "Testing":
-            file_path = os.path.join(os.path.dirname(__file__), "../../data/final_dataframes/main_testing_dataframe.csv")
+        if self.mode == "Validation":         
+            file_path = os.path.join(os.getcwd(), 
+                        "..\\..\\..\\1_data\\final_dataframes\\main_validation_dataframe.csv") 
         else:
-            print("Mode variable can only take values \"Validation\" and \"Testing\".")
-        df = self.speed_cubed_div_temp(self.make_yymmdd_format(pd.read_csv(file_path)))
+            file_path = os.path.join(os.getcwd(), 
+                        "..\\..\\..\\1_data\\final_dataframes\\main_testing_dataframe.csv")
+        if self.feature_selection == "spd_cubed_div_temp": 
+            df = self.speed_cubed_div_temp(self.make_yymmdd_format(pd.read_csv(file_path)))
+        elif self.feature_selection == "speed":
+            df = self.make_yymmdd_format(pd.read_csv(file_path))
+        else:
+            df = self.speed_cubed(self.make_yymmdd_format(pd.read_csv(file_path)))
         return df
 
 
     def run(self) -> None:
         """
         Main function to load data, validate input, run kNN forecasting, and compute evaluation metrics.
-        If one combination of (pca_comp, n_nbr) is given, it returns that model's prediction and scores.
-        If multiple combinations are given, it runs a manual grid search and returns all predictions and CV scores.
+        If one combination of (pca_comp, n_nbr) is given, it updates that model's prediction, scores, 
+        and the plot for that combination.
+        If multiple combinations are given, it runs a manual grid search and updates all predictions, 
+        CV scores, and the plots for the best combinations in terms of MAPE and R2.
 
-        Args:
-            pca_comps (List[int], optional): List of PCA component counts to test. Default is [35].
-            n_nbrs (List[int], optional): List of kNN neighbor values to test. Default is [5].
-
-        Returns:
-            Union:
-                - Tuple of predicted values, true values, MAPE, R² score (if only one hyperparam combo)
-                - Tuple of all combinations, all predictions, true values, list of MAPE scores, list of R² scores
         """
         df = self.get_data()
         test_window  = self.test_window
@@ -448,19 +490,18 @@ class kNN_Cross_Validation:
 
             mape= mean_absolute_percentage_error(y_pred = preds, y_true = true_aggregates)
             r2 = r2_score(y_pred = preds, y_true = true_aggregates)
+            mae = mean_absolute_error(y_pred=preds, y_true= true_aggregates)
 
-            self.preds, self.mape, self.r2 = preds, mape, r2
-            self.figure = self.plot(preds, true_agg, mape, r2, pca_comp, n_nbr)
+            self.preds, self.mape, self.r2, self.mae = preds, mape, r2, mae
+            self.figure = self.plot(preds, true_agg, mape, r2, mae, pca_comp, n_nbr)
             self.figure.show()
 
         else:
-            assert ((len(pca_comps) <= 4) and (len(n_nbrs) <=4)), ("\nPlease provide the lists of pca components"
-            " and kNN neighbours of length less than 3 to reduce run-time.")
-
             hyperparam_comb_index = {}
             hyperparam_comb_preds = []
             cv_mapes = []
             cv_r2s = []
+            cv_maes = []
     
             for i in range(len(pca_comps)):
                 for j in range(len(n_nbrs)):
@@ -470,32 +511,45 @@ class kNN_Cross_Validation:
                                                             pca_comps[i], n_nbrs[j], test_window)
                         mape= mean_absolute_percentage_error(y_pred = preds, y_true = true_aggregates)
                         r2 = r2_score(y_pred = preds, y_true = true_aggregates)
+                        mae = mean_absolute_error(y_pred=preds, y_true= true_aggregates)
                         cv_mapes.append(mape)
                         cv_r2s.append(r2)
+                        cv_maes.append(mae)
+                        
                         hyperparam_comb_preds.append(preds)
 
                         print(f"Prediction done with: PCA comps = {pca_comps[i]}, knn nbr = {n_nbrs[j]}. "
-                            f"Error scores: cv_mape = {mape:.3f}, cv_R2 = {r2:.3f}.")
+                            f"Error scores: cv_mape = {mape:.3f}, cv_R2 = {r2:.3f}, MAE = {mae:.1f}.")
                     except:
                         print(f"Error in hyperparameters combination: {(pca_comps[i], n_nbrs[j])}")
             self.hyperparam_comb_index = hyperparam_comb_index
             self.hyperparam_comb_preds = hyperparam_comb_preds  
-            self.cv_mapes, self.cv_r2s = cv_mapes, cv_r2s
+            self.cv_mapes, self.cv_r2s, self.cv_maes = cv_mapes, cv_r2s, cv_maes
             self.find_best_hyperparams_combination()
             print("\nPloting the best predicted values for the best parameter combination...")
 
-            best_MAPE_idx, best_r2_idx = self.best_MAPE_idx, self.best_r2_idx
+            best_MAPE_idx, best_r2_idx, best_mae_idx = (self.best_MAPE_idx, 
+                                                        self.best_r2_idx,
+                                                        self.best_mae_idx)
 
-            self.fig_best_MAPE = self.plot(hyperparam_comb_preds[best_MAPE_idx], true_agg, 
-                                    cv_mapes[best_MAPE_idx], cv_r2s[best_MAPE_idx], 
+            self.fig_best_MAPE = self.plot(hyperparam_comb_preds[best_MAPE_idx], 
+                                    true_agg, cv_mapes[best_MAPE_idx], 
+                                    cv_r2s[best_MAPE_idx], cv_maes[best_MAPE_idx], 
                                     hyperparam_comb_index[best_MAPE_idx][0], 
                                     hyperparam_comb_index[best_MAPE_idx][1])
-            self.fig_best_r2 = self.plot(hyperparam_comb_preds[best_r2_idx], true_agg, 
-                                    cv_mapes[best_r2_idx], cv_r2s[best_r2_idx], 
+            self.fig_best_r2 = self.plot(hyperparam_comb_preds[best_r2_idx], 
+                                    true_agg, cv_mapes[best_r2_idx], 
+                                    cv_r2s[best_r2_idx],cv_maes[best_r2_idx], 
                                     hyperparam_comb_index[best_r2_idx][0], 
                                     hyperparam_comb_index[best_r2_idx][1])
+            self.fig_best_mae = self.plot(hyperparam_comb_preds[best_mae_idx], 
+                                    true_agg, cv_mapes[best_mae_idx], 
+                                    cv_r2s[best_mae_idx], cv_maes[best_mae_idx],  
+                                    hyperparam_comb_index[best_mae_idx][0], 
+                                    hyperparam_comb_index[best_mae_idx][1])
             self.fig_best_MAPE.show()
             self.fig_best_r2.show()
+            self.fig_best_mae.show()
 
 
 
@@ -512,19 +566,24 @@ class kNN_Cross_Validation:
         Returns:
             Tuple[int, int]: Indices of the best hyperparameter combination based on MAPE and R².
         """
-        cv_mapes, cv_r2s, hyperparam_comb_index = self.cv_mapes, self.cv_r2s, self.hyperparam_comb_index
-    
+        cv_mapes, cv_r2s, cv_maes = self.cv_mapes, self.cv_r2s, self.cv_maes 
+        hyperparam_comb_index = self.hyperparam_comb_index
         best_MAPE_idx = cv_mapes.index(min(cv_mapes))
         best_r2_idx = cv_r2s.index(max(cv_r2s))
+        best_mae_idx = cv_maes.index(min(cv_maes))
 
         print(f"\n\nBest combination in terms of MAPE: pca = {hyperparam_comb_index[best_MAPE_idx][0]},"
             f" nbr = {hyperparam_comb_index[best_MAPE_idx][1]}, MAPE = {cv_mapes[best_MAPE_idx]:.3f},"
-            f" R2 = {cv_r2s[best_MAPE_idx]:.3f}")
+            f" R2 = {cv_r2s[best_MAPE_idx]:.3f}, MAE = {cv_maes[best_MAPE_idx]:.1f}.")
         print(f"Best combination in terms of R2 score: pca = {hyperparam_comb_index[best_r2_idx][0]},"
             f" nbr = {hyperparam_comb_index[best_r2_idx][1]}, MAPE = {cv_mapes[best_r2_idx]:.3f},"
-            f" R2 = {cv_r2s[best_r2_idx]:.3f}")
+            f" R2 = {cv_r2s[best_r2_idx]:.3f}, MAE = {cv_maes[best_r2_idx]:.1f}.")
+        print(f"Best combination in terms of MAE score: pca = {hyperparam_comb_index[best_mae_idx][0]},"
+            f" nbr = {hyperparam_comb_index[best_mae_idx][1]}, MAPE = {cv_mapes[best_mae_idx]:.3f},"
+            f" R2 = {cv_r2s[best_mae_idx]:.3f}, MAE = {cv_maes[best_mae_idx]:.1f}.")
         self.best_MAPE_idx = best_MAPE_idx
         self.best_r2_idx = best_r2_idx
+        self.best_mae_idx = best_mae_idx
         
 
 

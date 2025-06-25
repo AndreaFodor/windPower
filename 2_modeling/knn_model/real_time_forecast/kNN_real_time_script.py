@@ -16,14 +16,20 @@ import plotly.graph_objects as go
 
 
 class kNN_forecast:
-    def __init__(self, pca_comp: int = 35, n_nbr: int = 5):
+    def __init__(self, 
+                 pca_comp: int = 35, 
+                 n_nbr: int = 5,
+                 days_to_train_on: int = 60):
         # Hyperparameters
         self.pca_comp: int = pca_comp               # Number of PCA components to use
-        self.n_nbr: int = n_nbr                     # Number of neighbors in kNN
+        self.n_nbr: int = n_nbr                     # Number of neighbors in kNN        
 
         # Time windows
         self.train_window: Optional[pd.DatetimeIndex] = None   # Training date range
         self.predict_window: Optional[pd.DatetimeIndex] = None # Prediction date range
+        assert (10 <= days_to_train_on <= 180), ("Please input training window "
+                        "length (in days) to be an integer between 10 and 180")
+        self.days_to_train_on: int = days_to_train_on          # Number of days the model gets trained on
 
         # Input data
         self.train_df: Optional[pd.DataFrame] = None           # Training data
@@ -31,8 +37,9 @@ class kNN_forecast:
 
         # Prediction output
         self.predicted_values: Optional[List[float]] = None    # Final predicted values
-        self.true_vals_if_forcast_within_downloaded_data: Optional[Dict[str, float]] = None  
-                                                               # Actuals, if forecast falls within known data
+        self.true_vals_if_forcast_within_downloaded_data: Optional[List[float]] = None  
+                                            # Actuals, if forecast falls within known data
+        self.figure: Optional[go.Figure] = None       # Figure of predicted and trained data
 
         # Data availability cutoff
         self.data_already_downloaded_till: pd.Timestamp = pd.Timestamp('2025-06-20')  
@@ -305,6 +312,7 @@ class kNN_forecast:
         
     def input(self) -> None:
         """
+        To set the input data interactively from a terminal or jupyter notebook.
         Combines cleaned power and weather data for both training and prediction periods.
         Finally updates variables self.train_df and self.predict_df
 
@@ -330,7 +338,7 @@ class kNN_forecast:
     ## This one is for the dash app input
     def set_input(self, start_date: str, forecast_window: int) -> str:
         """
-        To set the input data coming from the dash app.
+        Same method as self.input(), but to set the input data coming from the dash app.
         Combines cleaned power and weather data for both training and prediction periods.
         Finally updates variables self.train_window, self.train_df and self.predict_df.
 
@@ -343,7 +351,8 @@ class kNN_forecast:
         """
         try:
             start_date = pd.to_datetime(start_date)
-            earliest_allowed_date = pd.Timestamp('2024-08-20')
+            earliest_allowed_date = (pd.Timestamp('2024-06-21') 
+                                 + pd.Timedelta(self.days_to_train_on, unit = 'd'))
             latest_allowed_date = pd.Timestamp(str(date.today()))
 
             if not (earliest_allowed_date <= start_date <= latest_allowed_date):
@@ -377,13 +386,65 @@ class kNN_forecast:
             return f"Unexpected error: {str(e)}"
 
 
+    def manual_input(self, start_date: str, window_length: int) -> None:
+        """
+        Samimilar logic as method self.input(), but to set the input data manually into the 
+        class object. Manually takes input to the object of this class, combines cleaned 
+        power and weather data for both training and prediction periods.
+        Finally updates variables self.train_df and self.predict_df
+
+        Args:
+            start_date (str): The string of forecast window start date in YYYY-MM-DD format.
+            window_length (int): The length of the forecast window.
+        
+        Returns:
+            None
+        """
+        earliest_allowed_date = (pd.Timestamp('2024-06-21') 
+                                 + pd.Timedelta(self.days_to_train_on, unit = 'd'))
+        latest_allowed_date = pd.Timestamp(f'{str(date.today())}')
+        try:
+            start_date = pd.Timestamp(start_date)
+            assert earliest_allowed_date <= start_date <= latest_allowed_date, ("ValueError: "
+            f"Please input a date between {earliest_allowed_date.strftime('%Y-%m-%d')}"
+            f" to {latest_allowed_date.strftime('%Y-%m-%d')}.")
+        except ValueError:
+            raise AssertionError(f"Invalid date: {start_date}.")
+        max_allowed_window = 3
+        assert 1 <= window_length <= max_allowed_window, ("ValueError: Input " 
+                    f"should be an integer between 1 or {window_length}.")
+
+        end_date = start_date + pd.Timedelta(window_length-1, unit='d')
+        predict_window = pd.date_range(start=start_date, end=end_date, freq='d')
+        
+        print(f"\nYour forecast window is days between: {predict_window[0].strftime('%Y-%m-%d')} "
+            f"and {predict_window[-1].strftime('%Y-%m-%d')}\n")
+        
+        self.predict_window = predict_window
+        self.get_train_window()
+
+        power_df = self.read_and_clean_power_data()
+        weather_df = self.read_and_clean_weather_data()
+        
+        weather_df_train = weather_df[weather_df['time'].isin(pd.date_range(self.train_window[0], 
+                                                self.train_window[-1].replace(hour=23), freq='h'))]
+        self.train_df = pd.merge(power_df, weather_df_train, on=['time'])
+
+        self.predict_df= weather_df[weather_df['time'].isin(pd.date_range(self.predict_window[0], 
+                                                self.predict_window[-1].replace(hour=23), freq='h'))]    
+                    ## assuming in real-time case, we won't have the wind power column in the predict_df
+                    ## that's the entire point that we are predicting anyway
+
+
+
     def get_forecast_window(self) -> None:
         """
         Interactively prompts the user to input a forecast window. Used when run from a terminal
         or jupyter notebook.
 
         """
-        earliest_allowed_date = pd.Timestamp('2024-08-20')
+        earliest_allowed_date = (pd.Timestamp('2024-06-21') 
+                                 + pd.Timedelta(self.days_to_train_on, unit = 'd'))
         latest_allowed_date = pd.Timestamp(f'{str(date.today())}')
         print(f"\nPlease enter forecast start date in the format YYYY-MM-DD." 
             f"The date should be in between {earliest_allowed_date.strftime('%Y-%m-%d')}"
@@ -400,10 +461,12 @@ class kNN_forecast:
         print(f"\nYou have entered: {start_date.strftime('%Y-%m-%d')}.")
 
         window_length = 3
-        print(f"\nPlease enter forecast window (in days). It should be an integer between 1 or {window_length}.")
+        print(f"\nPlease enter forecast window (in days)."
+              f" It should be an integer between 1 or {window_length}.")
         
         window = int(input("Input forecast window: "))
-        assert 1 <= window <= window_length, f"ValueError: Input should be an integer between 1 or {window_length}."
+        assert 1 <= window <= window_length, ("ValueError: Input "
+        f"should be an integer between 1 or {window_length}.")
 
         print(f"\nYou have entered: {window}")
 
@@ -418,28 +481,25 @@ class kNN_forecast:
     def get_train_window(self) -> pd.DatetimeIndex:
         """
         Computes the time window to train on: 60 days before the forecast window, 
-        or starting from 2019-01-01 if the forecast is too early.
+        or starting from 2024-06-21 if the forecast is too early.
         
         Returns:
             train_window (pd.DatetimeIndex): The training dataset window.
         """
-        days_to_train_on = 60
         predict_start_date = self.predict_window[0]
-        time_diff = predict_start_date - pd.Timestamp(year=2019,month=1,day=1)
-        if time_diff.days <= days_to_train_on:
-            train_start_date = pd.Timestamp(year=2019,month=1,day=1)
+        time_diff = predict_start_date - pd.Timestamp('2024-06-21')
+        if time_diff.days <= self.days_to_train_on:
+            train_start_date = pd.Timestamp('2024-06-21')
         else:
-            train_start_date = predict_start_date - pd.Timedelta(days_to_train_on, unit='d')
+            train_start_date = predict_start_date - pd.Timedelta(self.days_to_train_on, unit='d')
         self.train_window = pd.date_range(start= train_start_date, 
                                     end= predict_start_date - pd.Timedelta(1, unit='d'), freq='d')   
 
 
     def forecast(self) -> go.Figure:
         """
-        Runs the kNN pipeline on weather and power data: reads, preprocesses, trains, predicts, and plots.
-
-        Returns:
-            Tuple[List[float], go.Figure]: Daily forecasted values and a plot.
+        The main method to call to forecast: runs the kNN pipeline on weather and power data: 
+        reads, preprocesses, trains, forecasts, and plots.
 
         """
 
@@ -463,6 +523,7 @@ class kNN_forecast:
         predicted = [sum(pred[i:i+24]) for i in range(0, len(pred),24)] 
         self.predicted_values = predicted 
 
-        fig = self.plot_plotly()       
+        fig = self.plot_plotly()
+        self.figure = fig       
         fig.show()
-        return fig
+
