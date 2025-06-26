@@ -194,7 +194,7 @@ class ARIMAxPredictions():
             y=trained_on,
             mode='lines',
             name='Training data',
-            line=dict(color='blue')
+            line=dict(color='#1E88E5')
         ))
 
         fig.add_trace(go.Scatter(
@@ -202,7 +202,7 @@ class ARIMAxPredictions():
             y=self.forecastarr,
             mode='lines',
             name='Predicted',
-            line=dict(color='magenta', dash='dash')
+            line=dict(color='#FFC107', dash='dash')
         ))
 
         # Plot the lower bound of the confidence interval (hidden line)
