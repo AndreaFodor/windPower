@@ -142,7 +142,6 @@ class kNN_Cross_Validation:
             mean_preds = np.mean(preds, axis=1)
             lower = [x for (x,y) in self.pred_conf_intervals]
             upper = [y for (x,y) in self.pred_conf_intervals]
-            # CI lower bound (invisible)
             fig.add_trace(go.Scatter(
                 x=days,
                 y=lower,
