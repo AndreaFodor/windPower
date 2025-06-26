@@ -148,7 +148,7 @@ class kNN_Cross_Validation:
                 y=lower,
                 mode='lines',
                 name='Lower Bound',
-                line=dict(color='#FFC107'),
+                line=dict(width = 0),
                 showlegend= False
             ))
 
@@ -157,8 +157,8 @@ class kNN_Cross_Validation:
                 x=days,
                 y=upper,
                 mode='lines',
-                name='95% CI',
-                line=dict(color='#FFC107'),
+                name='90% Confidence Interval',
+                line=dict(width = 0 ),
                 fill='tonexty',
                 fillcolor='rgba(173, 216, 230, 0.3)',  
             ))
@@ -595,7 +595,7 @@ class kNN_Cross_Validation:
                                                     pca_comp, n_nbr, test_window)
         
             if self.ci:
-                alpha = 0.95
+                alpha = 0.90
                 lower, upper = 100 * (1 - alpha) / 2, 100 * (1 + alpha) / 2
                 no_days = len(test_window)
                 no_iter = self.no_iters
