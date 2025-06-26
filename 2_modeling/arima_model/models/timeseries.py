@@ -11,6 +11,8 @@ from sklearn.metrics import mean_absolute_percentage_error as mape
 from sklearn.metrics import r2_score
 import plotly.graph_objects as go
 from seaborn import set_style
+from pathlib import Path
+
 set_style("whitegrid")
 
 def load_training_df(path='../../1_data/final_dataframes/main_validation_dataframe.csv'):
@@ -73,6 +75,8 @@ class ARIMAxPredictions():
         self.models = [AutoARIMA()]
         self.df_train = None
         self.forecastarr = []
+        self.confint_up = []
+        self.confint_down = []
 
     def load_training_data(self, path='../../1_data/final_dataframes/main_validation_dataframe.csv', datetime_column='index', predict_column='Wind', exogenus_column='mean_windspeed'):
         """
@@ -82,7 +86,7 @@ class ARIMAxPredictions():
         exogenous_column: name of the column in df containing mean windspeed values
 
         """
-        df = load_training_df()
+        df = load_training_df(path)
         if not isinstance(df, pd.DataFrame):
             raise TypeError('df must be a pd.DataFrame')
         if not (datetime_column in df.columns and predict_column in df.columns and exogenus_column in df.columns):
@@ -134,7 +138,7 @@ class ARIMAxPredictions():
                            )
         return fcst
     
-    def forecast_range(self, start_date, end_date):
+    def forecast_range(self, start_date, end_date, plotting=True):
         if not isinstance(start_date, pd.Timestamp):
             try:
                 start_date = pd.Timestamp(start_date)
@@ -150,9 +154,13 @@ class ARIMAxPredictions():
         
         if self.df_train is None:
             self.load_training_data()
+
+        self.forecastarr = []
         for date in pd.date_range(start=start_date, end=(end_date), freq='D'):
             fcst = self.forecast(date)
-            self.forecastarr.append(fcst.AutoARIMA.values)
+            self.forecastarr.append(fcst.AutoARIMA.values[0])
+            self.confint_up.append(fcst['AutoARIMA-hi-90'].values[0])
+            self.confint_down.append(fcst['AutoARIMA-lo-90'].values[0])
         cmape = mape(self.df_train[(self.df_train['ds']>=start_date) & (self.df_train['ds']<=end_date)].y.values, self.forecastarr)
         cmae = mae(self.df_train[(self.df_train['ds']>=start_date) & (self.df_train['ds']<=end_date)].y.values, self.forecastarr)
         cr2 = r2_score(self.df_train[(self.df_train['ds']>=start_date) & (self.df_train['ds']<=end_date)].y.values, self.forecastarr)
@@ -160,66 +168,20 @@ class ARIMAxPredictions():
         print('Mean absolute error: ', cmae)
         print('r2 score: ', cr2)  
 
-        plt.plot(self.df_train[(self.df_train['ds']<=start_date) & (self.df_train['ds']>=(start_date - pd.Timedelta(days=self.training_interval + 1)))].ds.values, self.df_train[(self.df_train['ds']<=date) & (self.df_train['ds']>=(date - pd.Timedelta(days=self.training_interval + 1)))].y.values, label = 'training data')
-        plt.plot(self.df_train[(self.df_train['ds']>=start_date) & (self.df_train['ds']<=end_date)].ds.values, self.df_train[(self.df_train['ds']>=start_date) & (self.df_train['ds']<=end_date)].y.values, label = 'True value')
-        plt.plot(self.df_train[(self.df_train['ds']>=start_date) & (self.df_train['ds']<=end_date)].ds.values, self.forecastarr, label = 'Prediction')
-        plt.xlabel('Date')
-        plt.ylabel('Wind power per day [MW]')
-        plt.xticks(rotation=45)
-        plt.legend()
+        if plotting:
+            plt.plot(self.df_train[(self.df_train['ds']<=start_date) & (self.df_train['ds']>=(start_date - pd.Timedelta(days=self.training_interval + 1)))].ds.values, self.df_train[(self.df_train['ds']<=date) & (self.df_train['ds']>=(date - pd.Timedelta(days=self.training_interval + 1)))].y.values, label = 'training data')
+            plt.plot(self.df_train[(self.df_train['ds']>=start_date) & (self.df_train['ds']<=end_date)].ds.values, self.df_train[(self.df_train['ds']>=start_date) & (self.df_train['ds']<=end_date)].y.values, label = 'True value')
+            plt.plot(self.df_train[(self.df_train['ds']>=start_date) & (self.df_train['ds']<=end_date)].ds.values, self.forecastarr, label = 'Prediction')
+            plt.fill_between(self.df_train[(self.df_train['ds']>=start_date) & (self.df_train['ds']<=end_date)].ds.values, self.confint_up, self.confint_down, color='blue', alpha=0.2, label='Confidence Interval')
+            plt.xlabel('Date')
+            plt.ylabel('Wind power per day [MW]')
+            plt.xticks(rotation=45)
+            plt.legend()
 
-        self.plot_plotly(start_date, end_date)
+            fig = self.plot_plotly(start_date, end_date)
+            fig.show()
 
-        return cmape, cr2
-
-
-    def set_input(self, start_date: str, forecast_window: int) -> str:
-        """
-        To set the input data coming from the dash app.
-        Combines cleaned power and weather data for both training and prediction periods.
-        Finally updates variables self.train_window, self.train_df and self.predict_df.
-
-        Args:
-            start_date (str): Start date from the prediction window in YYYY-MM-DD format.
-            forecast_window (int): Forcast window length.
-
-        Returns:
-            str: Error messages for different situations
-        """
-        try:
-            start_date = pd.to_datetime(start_date)
-            earliest_allowed_date = pd.Timestamp('2024-08-20')
-            latest_allowed_date = pd.Timestamp(str(date.today()))
-
-            if not (earliest_allowed_date <= start_date <= latest_allowed_date):
-                return (f"Error: Please input a date between "
-                        f"{earliest_allowed_date.strftime('%Y-%m-%d')} and "
-                        f"{latest_allowed_date.strftime('%Y-%m-%d')}.")
-
-            window_length = 3
-            if not (1 <= forecast_window <= window_length):
-                return f"Error: Forecast window should be an integer between 1 and {window_length}."
-
-            # If valid, compute predict_window
-            end_date = start_date + pd.Timedelta(days=forecast_window - 1)
-            self.horizon = pd.date_range(start=start_date, end=end_date, freq='d')
-            self.get_train_window()
-            power_df = self.read_and_clean_power_data()          ## already only has the training data
-            weather_df = self.read_and_clean_weather_data()
-            
-            weather_df_train = weather_df[weather_df['time'].isin(pd.date_range(self.train_window[0], 
-                                                    self.train_window[-1].replace(hour=23), freq='h'))]
-            self.train_df = pd.merge(power_df, weather_df_train, on=['time'])
-
-            self.predict_df= weather_df[weather_df['time'].isin(pd.date_range(self.predict_window[0], 
-                                                    self.predict_window[-1].replace(hour=23), freq='h'))]  
-
-            # Return None or success message
-            return ""
-
-        except Exception as e:
-            return f"Unexpected error: {str(e)}"
-
+        return cmape, cmae, cr2
 
     def plot_plotly(self, start_date, end_date) -> go.Figure:
         fig = go.Figure()
@@ -227,23 +189,11 @@ class ARIMAxPredictions():
         date_range = pd.date_range(start=start_date, end=(end_date), freq='D')
         trained_on = self.df_train[(self.df_train['ds']>=start_date) & (self.df_train['ds']<=end_date)].y.values
 
-        # if self.predict_window[-1] <= self.data_already_downloaded_till:
-        #     ## if forecast date range lies inside the downloaded data
-        #     ## that means, we have power data for this range. In this case,
-        #     ## we also plot the true values
-        #     fig.add_trace(go.Scatter(
-        #         x=date_range,
-        #         y=[trained_on[-1]] + self.true_vals_if_forcast_within_downloaded_data,
-        #         mode='lines',
-        #         name='True values',
-        #         line=dict(color='cyan')
-        #     ))
-
         fig.add_trace(go.Scatter(
             x=date_range,
             y=trained_on,
             mode='lines',
-            name='Trained data',
+            name='Training data',
             line=dict(color='blue')
         ))
 
@@ -255,8 +205,14 @@ class ARIMAxPredictions():
             line=dict(color='magenta', dash='dash')
         ))
 
+        # Plot the lower bound of the confidence interval (hidden line)
+        fig.add_trace(go.Scatter(x=date_range, y=self.confint_down, mode='lines', line=dict(width=0), showlegend=False))
+        
+        # Plot the upper bound of the confidence interval with fill
+        fig.add_trace(go.Scatter(x=date_range, y=self.confint_up, mode='lines', line=dict(width=0), fill='tonexty', fillcolor='rgba(0,100,80,0.2)', name=f'{self.confidence_level}% Confidence Interval'))
+
         fig.update_layout(
-            title="Plot of total power per day showing the training data and the predicted data.",
+            title="Plot of total power per day showing the training data and the ARIMAx predicted data.",
             xaxis_title='Date',
             yaxis_title='Total power per day (in MW)',
             xaxis=dict(
@@ -267,7 +223,5 @@ class ARIMAxPredictions():
             ),
             legend=dict(x=0.01, y=0.99)
         )
-        fig.show()
-
         return fig
 
