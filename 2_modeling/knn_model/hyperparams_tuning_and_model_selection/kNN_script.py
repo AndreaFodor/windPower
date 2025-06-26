@@ -133,7 +133,7 @@ class kNN_Cross_Validation:
             y=true_vals,
             mode='lines',
             name='True',
-            line=dict(color='blue')
+            line=dict(color='#1E88E5')
         ))
 
         # Predicted values trace
@@ -148,7 +148,7 @@ class kNN_Cross_Validation:
                 y=lower,
                 mode='lines',
                 name='Lower Bound',
-                line=dict(color='lightblue'),
+                line=dict(color='#FFC107'),
                 showlegend= False
             ))
 
@@ -158,7 +158,7 @@ class kNN_Cross_Validation:
                 y=upper,
                 mode='lines',
                 name='95% CI',
-                line=dict(color='lightblue'),
+                line=dict(color='#FFC107'),
                 fill='tonexty',
                 fillcolor='rgba(173, 216, 230, 0.3)',  
             ))
@@ -169,7 +169,7 @@ class kNN_Cross_Validation:
                 y=mean_preds,
                 mode='lines',
                 name='Predicted (mean)',
-                line=dict(color='cyan', dash='dash')
+                line=dict(color='#FFC107', dash='dash')
             ))
 
         else:   # single prediction vector
@@ -178,7 +178,7 @@ class kNN_Cross_Validation:
                 y=preds,
                 mode='lines',
                 name='Predicted',
-                line=dict(color='cyan', dash='dash')
+                line=dict(color='#FFC107', dash='dash')
             ))
 
         # Annotated box as text annotation
