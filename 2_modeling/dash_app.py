@@ -9,10 +9,10 @@ app = dash.Dash(__name__)
 
 # Layout
 app.layout = html.Div([
-    html.H1("Power Forecast Dashboard"),
+    html.H1("Power Prediction Dashboard"),
     html.Label("Select a Model"),
     dcc.Dropdown(options = ['kNN','ARIMAx'], value = None , id='dropdown'),
-    html.Label("Select Forecast Start Date "),
+    html.Label("Select Prediction Start Date "),
     dcc.DatePickerSingle(
         id='start-date-picker',
         min_date_allowed=pd.to_datetime('2019-03-03'),
@@ -22,7 +22,7 @@ app.layout = html.Div([
 
     html.Br(),
 
-    html.Label("Forecast Window (in days) "),
+    html.Label("Prediction Window (in days) "),
     dcc.Input(id='forecast-window', type='number', min=1, max=30, value= None),
 
     html.Br(), html.Br(),
@@ -46,7 +46,7 @@ app.layout = html.Div([
 )
 def update_forecast(n_clicks, choice, start_date, window):
     if not start_date or not window:
-        msg = "Please provide both start date and forecast window " \
+        msg = "Please provide both start date and prediction window " \
         "(restricted to 30 to manage runtime)."
         return go.Figure(), msg , " "
     
@@ -72,7 +72,7 @@ def update_forecast(n_clicks, choice, start_date, window):
         fig = arima.plot_plotly(start_date, end_date)
         output_scores = f"ARIMAx CV error scores: MAPE: {cmape:.3f}; MAE: {cmae:.3f}, R²: {cr2:.3f}."
 
-    return fig, f"Forecast window is from {start_date} to {end_date.date()}.", output_scores
+    return fig, f"Prediction window is from {start_date} to {end_date.date()}.", output_scores
 
 
 if __name__ == '__main__':
