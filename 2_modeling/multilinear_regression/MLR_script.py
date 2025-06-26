@@ -5,11 +5,12 @@ import plotly.subplots as sp
 from typing import Tuple, List, Union, Dict, Optional
 
 from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import StandardScaler 
+from sklearn.preprocessing import StandardScaler, PolynomialFeatures
 from sklearn.linear_model import RidgeCV 
 from sklearn.model_selection import KFold, cross_validate
 from sklearn.metrics import mean_absolute_percentage_error, mean_absolute_error
 from sklearn.metrics import root_mean_squared_error, r2_score
+from sklearn.decomposition import PCA
 
 
 
@@ -18,6 +19,8 @@ class MlrCrossValidation:
         self.lag_days = lag_days
         self.pipe= Pipeline([
                     ('scale', StandardScaler()),
+                    # ('pca', PCA(n_components=0.95)),
+                    # ('poly', PolynomialFeatures(degree=3, include_bias=False)),
                     ('ridge', RidgeCV(alphas=[0.1, 1.0, 10.0], cv=5)),
                       ])
         self.cv_results= None
@@ -54,7 +57,7 @@ class MlrCrossValidation:
         mlr_df = pd.DataFrame()
         mlr_df['Wind'] = df['Wind'].resample('D').sum()
         mlr_df[wind_speed_data_columns] = df[wind_speed_data_columns].resample('D').mean()
-        mlr_df[temps_data_columns] = df[temps_data_columns].resample('D').mean() + 273.15
+        mlr_df[temps_data_columns] = (df[temps_data_columns].resample('D').mean() + 273.15)**(-1)
 
         # Add lagged features
         if self.lag_days > 0:
@@ -62,8 +65,7 @@ class MlrCrossValidation:
             lag_df.columns = [f"{col}_lag1" for col in lag_df.columns]
 
             mlr_df = pd.concat([mlr_df, lag_df], axis=1)
-            # lag_cols = [f"{col}_lag1" for col in weather_columns]
-            # mlr_df[lag_cols] = mlr_df[weather_columns].shift(1)
+
 
         # Add rolling mean lag features all at once to avoid fragmentation
         if self.lag_days > 1:
@@ -86,52 +88,7 @@ class MlrCrossValidation:
         mlr_df = mlr_df.copy()
 
         return mlr_df
-        # wind_speed_data_columns=[]
-        # temps_data_columns=[]
-        # for s in df.columns:
-        #     if 'wind_speed' in s:
-        #         wind_speed_data_columns.append(s)
 
-        # for s in df.columns:
-        #     if 'temp' in s:
-        #         temps_data_columns.append(s)
-
-        # weather_colums = wind_speed_data_columns + temps_data_columns
-
-
-        # #add the weather data and wind data, 
-        # mlr_df= pd.DataFrame()
-        # mlr_df['Wind']= df.Wind.resample('D').sum()
-        # mlr_df[wind_speed_data_columns] = df[wind_speed_data_columns].resample('D').mean()
-        # mlr_df[temps_data_columns]= df[temps_data_columns].resample('D').mean() + 273.15
-
-        # mlr_df=mlr_df.copy()
-
-
-        # if self.lag_days>0:
-        # #add the laging one day colum
-
-
-        #     lag_cols= [f"{col}_lag1" for col in weather_colums]
-
-        #     mlr_df[lag_cols]= mlr_df[weather_colums].shift(1)
-        # if self.lag_days>1:
-        # #rolling mean lag, day 2 to 7
-        #     lag_window=range(2,self.lag_days)
-
-        #     for L in lag_window:
-
-        #         roll_colms=[f"{col}_lag" +str(L)+'_mean' for col in weather_colums] 
-        #         mlr_df[roll_colms]= mlr_df[weather_colums].shift(2).rolling(window = L).mean()
-        # mlr_df=mlr_df.copy()
-        # #creats a colume for sine and cosine of the day of the year
-        # delta= mlr_df.index - pd.to_datetime(mlr_df.index.year.astype(str)  + '-01-01')
-
-        # mlr_df['doy_sin']=np.sin(2* np.pi * delta.days.astype(int) /365)
-        # mlr_df['doy_cos'] = np.cos( 2* np.pi * delta.days.astype(int) /365)
-
-        # mlr_df=mlr_df.copy()
-        # return(mlr_df)
     
     def data_for_module(self, df: pd.DataFrame) -> List[pd.DataFrame]:
         """
