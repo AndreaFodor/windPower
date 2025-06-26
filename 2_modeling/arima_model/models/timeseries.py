@@ -206,10 +206,20 @@ class ARIMAxPredictions():
         ))
 
         # Plot the lower bound of the confidence interval (hidden line)
-        fig.add_trace(go.Scatter(x=date_range, y=self.confint_down, mode='lines', line=dict(width=0), showlegend=False))
+        fig.add_trace(go.Scatter(x=date_range, 
+                                 y=self.confint_down, 
+                                 mode='lines', 
+                                 line=dict(width=0), 
+                                 showlegend=False))
         
         # Plot the upper bound of the confidence interval with fill
-        fig.add_trace(go.Scatter(x=date_range, y=self.confint_up, mode='lines', line=dict(width=0), fill='tonexty', fillcolor='rgba(0,100,80,0.2)', name=f'{self.confidence_level}% Confidence Interval'))
+        fig.add_trace(go.Scatter(x=date_range, 
+                                 y=self.confint_up, 
+                                 mode='lines', 
+                                 line=dict(width=0), 
+                                 fill='tonexty', 
+                                 fillcolor='rgba(173, 216, 230, 0.3)', 
+                                 name=f'{self.confidence_level[0]}% Confidence Interval'))
 
         fig.update_layout(
             title="Plot of total power per day showing the training data and the ARIMAx predicted data.",
