@@ -7,30 +7,30 @@ from arima_model.models.timeseries import ARIMAxPredictions
 
 app = dash.Dash(__name__)
 
-stats= ''
 # Layout
 app.layout = html.Div([
     html.H1("Power Forecast Dashboard"),
-    html.Label("Select Model"),
+    html.Label("Select a Model"),
     dcc.Dropdown(options = ['kNN','ARIMAx'], value = None , id='dropdown'),
-    html.Label("Select Forecast Start Date"),
+    html.Label("Select Forecast Start Date "),
     dcc.DatePickerSingle(
         id='start-date-picker',
         min_date_allowed=pd.to_datetime('2019-03-03'),
-        max_date_allowed=pd.to_datetime('2022-12-31'),
+        max_date_allowed=pd.to_datetime('2023-12-31'),
         date=None
     ),
 
     html.Br(),
 
-    html.Label("Forecast Window (in days)"),
-    dcc.Input(id='forecast-window', type='number', min=1, max=365, value= None),
+    html.Label("Forecast Window (in days) "),
+    dcc.Input(id='forecast-window', type='number', min=1, max=30, value= None),
 
     html.Br(), html.Br(),
 
     html.Button("Submit", id='submit-button', n_clicks=0),
 
     html.Div(id='output-date-range'),
+    html.Div(id='output-error-scores'),
 
     dcc.Graph(id='forecast-graph')
 ])
@@ -38,6 +38,7 @@ app.layout = html.Div([
 @app.callback(
     Output('forecast-graph', 'figure'),
     Output('output-date-range', 'children'),
+    Output('output-error-scores', 'children'),
     Input('submit-button', 'n_clicks'),
     State('dropdown', 'value'),
     State('start-date-picker', 'date'),
@@ -45,12 +46,14 @@ app.layout = html.Div([
 )
 def update_forecast(n_clicks, choice, start_date, window):
     if not start_date or not window:
-        return go.Figure(), "Please provide both start date and forecast window."
+        msg = "Please provide both start date and forecast window " \
+        "(restricted to 30 to manage runtime)."
+        return go.Figure(), msg , " "
     
     end_date = pd.to_datetime(start_date) + pd.Timedelta(days=window-1)
 
     if choice == 'kNN':
-        knn = kNN_Cross_Validation(days_to_train_on=90)
+        knn = kNN_Cross_Validation(with_confidence_interval=True, mode="Testing")
         # Pass input
         error_msg = knn.manual_input(start_date, window)
 
@@ -60,15 +63,16 @@ def update_forecast(n_clicks, choice, start_date, window):
         # Valid input → make forecast
         knn.run(display=False)
         fig = knn.figure
+        cmape, cmae, cr2 =knn.mape, knn.mae, knn.r2
+        output_scores = f"kNN CV error scores: MAPE: {cmape:.3f}; MAE: {cmae:.3f}, R²: {cr2:.3f}."
     elif choice == 'ARIMAx':
         arima = ARIMAxPredictions()
         arima.load_training_data(path='../1_data/final_dataframes/main_testing_dataframe.csv')
         cmape, cmae, cr2 = arima.forecast_range(start_date, end_date, plotting=False)
         fig = arima.plot_plotly(start_date, end_date)
-        stats = f'MAPE: {cmape:.3f}; MAE: {cmae:.3f}, r2: {cr2:.3f}'
-    else:
-        pass
-    return fig, f"Forecast window is from {start_date} to {end_date.date()}. {stats}"
+        output_scores = f"ARIMAx CV error scores: MAPE: {cmape:.3f}; MAE: {cmae:.3f}, R²: {cr2:.3f}."
+
+    return fig, f"Forecast window is from {start_date} to {end_date.date()}.", output_scores
 
 
 if __name__ == '__main__':
