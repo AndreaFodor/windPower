@@ -76,7 +76,7 @@ def update_all(model_choice, n_clicks, start_date, window):
         end_date = pd.to_datetime(start_date) + pd.Timedelta(days=window-1)
 
         if model_choice == 'kNN (Validation/Testing)':
-            knn = kNN_Cross_Validation(with_confidence_interval=False, mode="Testing")
+            knn = kNN_Cross_Validation(with_confidence_interval=True, mode="Testing")
             error_msg = knn.manual_input(start_date, window)
             if error_msg:
                 return dash.no_update, dash.no_update, dash.no_update, dash.no_update, go.Figure(), error_msg, ""
