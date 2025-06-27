@@ -3,11 +3,11 @@
 **The Erdős Institute Data Science Bootcamp Summer 2025**
 
 **Team Members:**
-- Desmond Coles
-- Andrea Fodor
-- Kavindra Nissanka
-- Manimugdha Saikia
-- Jaxon Shumaker
+- [Desmond Coles](https://github.com/desmondcoles1)
+- [Andrea Fodor](https://github.com/AndreaFodor)
+- [Kavindra Nissanka](https://github.com/kvnissanka87)
+- [Manimugdha Saikia](https://github.com/m-saikia)
+- [Jaxon Shumaker](https://github.com/shumakerJ)
 
 ## Introduction
 Wind power is the second largest source of renewable energy for HydroQuébec, a public utility corporation that provides power to Canadians in Québec and export to Northeast American Power Traders. Knowledge of a day ahead power forecasting is an important metric for the company. 
@@ -26,14 +26,16 @@ We selected our models using the following cross validation method: we trained t
 We choose our best model on the basis of MAPE, MAE and R²-scores from the validation step. We kept two models - one that treats the data as time-series and the other which does not. 
 - kNN Regressor (Time-series agnostic): Performed best on both the training/validation set and the testing set.The kNN model is trained on the engineered feature: (wind speed)$^3$ divided by temperature (in Kelvin) for each wind farm. We train on hourly data, predict on hourly data, and then add the predicted values for the 24 hours to get the prediction on a particular day. Each prediction is based on a rolling 60-day training window.
 
-- ARIMAx (Time-series observant): 
+- ARIMAx (Time-series observant):
+
+## Results
 
 ## Dash APP
-An interactive *dash app* that allows the user to choose a model between **kNN Regressor** (with two options: i\) "Validation/Testing" running `kNN_script`, and ii\) "Real-time forecasting" running `kNN_real_time_script`) and **ARIMAx**, and input a prediction window. The difference between "kNN (Validation/Testing)" and "kNN (Real-time Forecasting)" is that the former, in theory, can make real-time forecast, given the user has access to the power data API key. 
+An interactive *dash app* that allows the user to choose a model between **kNN Regressor** (with two options: i\) "Validation/Testing" running `kNN_script`, and ii\) "Real-time forecasting" running `kNN_real_time_script`) and **ARIMAx**, and input a prediction window. The difference between "kNN (Validation/Testing)" and "kNN (Real-time Forecasting)" is that the former, in theory, have all the necessary code to make a real-time forecast, given the user has access to the power data API key. 
 
 <p> 
-<img src = "dash1.png", width = '40%' />,
-<img src = "dash2.png", width = '40%' />
+<img src = "4_figures/dash1.png", width = '40%' />,
+<img src = "4_figures/dash2.png", width = '40%' />
 </p>
 
 

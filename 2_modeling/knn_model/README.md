@@ -9,7 +9,7 @@ This folder includes two folders showing two different implemetation based on tw
 - `kNN_cross_validation.ipynb`: A jupyter notebook with explanation of the modeling approach, **documentation** of `kNN_script.py`, and example executions of available methods.
 
 #### Structure of `real_time_forecast/`:
-- `kNN_real_time_script.py`: An executable Python script with the class `kNN_forecast`. The script (**in theory**) downloads the relevant wind power output and weather data to train the model, along with weather forecast data for the prediction window. The **main difference** of this script with `kNN_script.py` is the ability of this script to produce forecast using real-time weather forecasting data, while the other one is used to study our best model.
+- `kNN_real_time_script.py`: An executable Python script with the class `kNN_forecast`. The script (**in theory**) downloads the relevant wind power output and weather data to train the model, along with weather forecast data for the prediction window. The **main difference** of this script with `kNN_script.py` is that, this script have all the necessary codes to produce real-time forecasting (provided we have the API key for the wind power data a few weeks prior to the day of forecasting), while the other one is used to select best hyperparameters for our model.
 - `kNN_real_time.ipynb`: A jupyter notebook **documentation** of `kNN_real_time_script.py`, and example executions of the available methods.
 - `real_time_weather_api.py`: Contains the function `weather_api_call` to retrieve real time weather forecasting data using an API call.
 - `real_time_power_api.py`: Contains the function `power_api_call` to retrieve real time weather forecasting data using an API call.

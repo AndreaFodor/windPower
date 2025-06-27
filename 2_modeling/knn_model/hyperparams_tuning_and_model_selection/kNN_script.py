@@ -179,7 +179,7 @@ class kNN_Cross_Validation:
                 y=preds,
                 mode='lines',
                 name='Predicted',
-                line=dict(color="#D81B60", dash='dash')
+                line=dict(color='#FFC107', dash='dash')
             ))
 
         # Annotated box as text annotation

@@ -13,7 +13,7 @@ app = dash.Dash(__name__)
 app.layout = html.Div([
     html.H1("Power Prediction Dashboard"),
     html.Label("Select a Model"),
-    dcc.Dropdown(options = ['kNN (Real-time forecasting)', 'kNN (Validation/Testing)','ARIMAx'], 
+    dcc.Dropdown(options = ['kNN (Real-time forecasting)', 'kNN (Validation/Testing)','ARIMAx (Validation/Testing)'], 
                  value = None , id='dropdown'),
     html.Label("Select Prediction Start Date "),
     dcc.DatePickerSingle(
@@ -57,7 +57,7 @@ def update_all(model_choice, n_clicks, start_date, window):
 
     if triggered == 'dropdown':
         # User changed model: reset everything
-        if model_choice in ['kNN (Validation/Testing)','ARIMAx']:
+        if model_choice in ['kNN (Validation/Testing)','ARIMAx (Validation/Testing)']:
             min_date = pd.to_datetime('2019-03-03')
             max_date = pd.to_datetime('2023-12-31')
         else:
@@ -84,7 +84,7 @@ def update_all(model_choice, n_clicks, start_date, window):
             fig = knn.figure
             cmape, cmae, cr2 = knn.mape, knn.mae, knn.r2
             output_scores = f"kNN CV error scores: MAPE: {cmape:.3f}; MAE: {cmae:.3f}, R²: {cr2:.3f}."
-        elif model_choice == 'ARIMAx':
+        elif model_choice == 'ARIMAx (Validation/Testing)':
             arima = ARIMAxPredictions()
             arima.load_training_data(path='../1_data/final_dataframes/main_testing_dataframe.csv')
             cmape, cmae, cr2 = arima.forecast_range(start_date, end_date, plotting=False)
