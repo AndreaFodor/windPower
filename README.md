@@ -5,7 +5,7 @@
 **Team Members:**
 - [Desmond Coles](https://github.com/desmondcoles1)
 - [Andrea Fodor](https://github.com/AndreaFodor)
-- [Kavindra Nissanka](https://github.com/kvnissanka87)
+- [Kavinda Nissanka](https://github.com/kvnissanka87)
 - [Manimugdha Saikia](https://github.com/m-saikia)
 - [Jaxon Shumaker](https://github.com/shumakerJ)
 
