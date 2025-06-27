@@ -2,25 +2,28 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import os
-from pathlib import Path
+import plotly.graph_objects as go
 
+from pathlib import Path
 from sklearn.neighbors import KNeighborsRegressor
 from sklearn.preprocessing import StandardScaler
 from sklearn.pipeline import Pipeline
 from sklearn.decomposition import PCA
+from sklearn.metrics import mean_absolute_percentage_error, mean_absolute_error, r2_score
 from datetime import date
-from knn_model.real_time_forecast.real_time_weather_api import weather_api_call
-from hydroquebec.api import Hydro_quebec_data
 from typing import Tuple, List, Union, Dict, Optional
 
-import plotly.graph_objects as go
 
+## Note: Remove comments for the following if API key is present to actually predict real-time
+#from real_time_weather_api import weather_api_call
+#from real_time_power_api import power_api_call
 
 class kNN_forecast:
     def __init__(self, 
                  pca_comp: int = 35, 
                  n_nbr: int = 5,
-                 days_to_train_on: int = 60):
+                 days_to_train_on: int = 60,
+                 window_max_length: int = 30):
         # Hyperparameters
         self.pca_comp: int = pca_comp               # Number of PCA components to use
         self.n_nbr: int = n_nbr                     # Number of neighbors in kNN        
@@ -31,6 +34,9 @@ class kNN_forecast:
         assert (10 <= days_to_train_on <= 180), ("Please input training window "
                         "length (in days) to be an integer between 10 and 180")
         self.days_to_train_on: int = days_to_train_on          # Number of days the model gets trained on
+        assert (1 <= window_max_length <= 100), ("Maximum allowed prediction window too large."
+        "Please input a number between 1 and 100.")
+        self.window_max_length: int = window_max_length
 
         # Input data
         self.train_df: Optional[pd.DataFrame] = None           # Training data
@@ -40,6 +46,10 @@ class kNN_forecast:
         self.predicted_values: Optional[List[float]] = None    # Final predicted values
         self.true_vals_if_forcast_within_downloaded_data: Optional[List[float]] = None  
                                             # Actuals, if forecast falls within known data
+        self.mape: Optional[float] = None
+        self.r2: Optional[float] = None
+        self.mae: Optional[float] = None
+
         self.figure: Optional[go.Figure] = None       # Figure of predicted and trained data
 
         # Data availability cutoff
@@ -77,14 +87,30 @@ class kNN_forecast:
             ## if forecast date range lies inside the downloaded data
             ## that means, we have power data for this range. In this case,
             ## we also plot the true values
+            true = self.true_vals_if_forcast_within_downloaded_data
+            self.mape = mean_absolute_percentage_error(y_pred=preds[1:], y_true=true)
+            self.r2 = r2_score(y_pred=preds[1:], y_true=true)
+            self.mae = mean_absolute_error(y_pred=preds[1:], y_true=true)
+            annotation_text = (f"PCA: {self.pca_comp} | kNN nbr: {self.n_nbr} |"
+                        f" MAPE: {self.mape:.3f} | R²: {self.r2:.3f} | MAE: {self.mae:.1f}")
             fig.add_trace(go.Scatter(
-                x=predict_day_strings,
-                y=[trained_on[-1]] + self.true_vals_if_forcast_within_downloaded_data,
+                x=(predict_day_strings),
+                y=[trained_on[-1]] + true,
                 mode='lines',
                 name='True values',
-                line=dict(color='cyan')
+                line=dict(color='#1E88E5')
             ))
-
+        else:
+            annotation_text = f"PCA: {self.pca_comp} | kNN nbr: {self.n_nbr}."
+        
+        fig.add_trace(go.Scatter(
+            x=(predict_day_strings),
+            y=preds,
+            mode='lines',
+            name='Predicted',
+            line=dict(color="#D81B60", dash='dash')
+        ))
+        
         fig.add_trace(go.Scatter(
             x=train_window,
             y=trained_on,
@@ -93,25 +119,29 @@ class kNN_forecast:
             line=dict(color='blue')
         ))
 
-        fig.add_trace(go.Scatter(
-            x=predict_day_strings,
-            y=preds,
-            mode='lines',
-            name='Predicted',
-            line=dict(color='magenta', dash='dash')
-        ))
+
+        fig.add_annotation(
+            text=annotation_text,
+            xref="paper", yref="paper",
+            x=0.5, y=0.95,
+            showarrow=False,
+            font=dict(size=12),
+            align='left',
+            bgcolor="wheat",
+            opacity=0.6
+        )
 
         fig.update_layout(
             title="Plot of total power per day showing the trained data and the predicted data.",
-            xaxis_title='Date',
             yaxis_title='Total power per day (in MW)',
             xaxis=dict(
-                tickformat='%Y-%m-%d',
+                title = "Date",
                 tickangle=45,
-                tickmode='array',
                 tickvals=pd.date_range(start=train_window[0], end=predict_day_strings[-1], periods=12)
             ),
-            legend=dict(x=0.01, y=0.99)
+            yaxis=dict(title="Total power per day (in MW)"),
+            legend=dict(x=0.01, y=0.99),
+            margin=dict(l=40, r=20, t=60, b=60)
         )
 
         return fig
@@ -178,6 +208,11 @@ class kNN_forecast:
         power_df['time'] = power_df['time'].dt.tz_localize(None)
         power_df = power_df.sort_values('time')
 
+        if (len(power_df[power_df['time'].duplicated()])  != 0
+            or len(power_df[power_df.isnull().any(axis=1)]) != 0) :
+            print("Duplicates or NaN found in power data. Processing and cleaning data...")
+            power_df = self.duplicate_NaN_handle(power_df)
+
         if self.predict_window[-1] <= self.data_already_downloaded_till:
             ## if forecast window falls under the downloaded range, also save the the true values to plot
             predict_window_hourly = pd.date_range(self.predict_window[0],
@@ -189,13 +224,8 @@ class kNN_forecast:
 
         train_window_hourly =  pd.date_range(train_window[0], 
                                                 train_window[-1].replace(hour=23), freq='h')
-        power_df_train = power_df[power_df['time'].isin(train_window_hourly)]
-   
-        
-        if (len(power_df_train[power_df_train['time'].duplicated()])  != 0
-            or len(power_df_train[power_df_train.isnull().any(axis=1)]) != 0) :
-            print("Duplicates or NaN found in power data. Processing and cleaning data...")
-            power_df_train = self.duplicate_NaN_handle(power_df_train)
+        power_df_train = power_df[power_df['time'].isin(train_window_hourly)]       
+
 
         if train_window[-1] <= self.data_already_downloaded_till: 
                                         ## if the predict window is before 'data_already_downloaded_till'
@@ -241,24 +271,6 @@ class kNN_forecast:
         df = df.bfill()
 
         return df.reset_index().rename(columns={'index': 'time'})
-
-
-    def power_api_call(self, start_date: str, end_date: str) -> pd.DataFrame:
-        """
-        Fetches wind generation data from the Hydro Quebec API for the given date range.
-
-        Args:
-            start_date (str): Start date in 'YYYY-MM-DD' format.
-            end_date (str): End date in 'YYYY-MM-DD' format.
-
-        Returns:
-            pd.DataFrame: DataFrame containing hourly wind power data.
-        """ 
-        api_key = 'API_key_here'
-        data_type = 'generation'
-        data_frame = Hydro_quebec_data(api_key, data_type, start_date, end_date)
-        return data_frame ### may need to convert to pd.Dataframe as the api call may return a dictionary
-
 
     def read_and_clean_weather_data(self)-> pd.DataFrame:
         """
@@ -365,9 +377,8 @@ class kNN_forecast:
                         f"{earliest_allowed_date.strftime('%Y-%m-%d')} and "
                         f"{latest_allowed_date.strftime('%Y-%m-%d')}.")
 
-            window_length = 3
-            if not (1 <= forecast_window <= window_length):
-                return f"Error: Forecast window should be an integer between 1 and {window_length}."
+            if not (1 <= forecast_window <= self.window_max_length):
+                return f"Error: Forecast window should be an integer between 1 and {self.window_max_length}."
 
             # If valid, compute predict_window
             end_date = start_date + pd.Timedelta(days=forecast_window - 1)
@@ -410,14 +421,14 @@ class kNN_forecast:
         latest_allowed_date = pd.Timestamp(f'{str(date.today())}')
         try:
             start_date = pd.Timestamp(start_date)
-            assert earliest_allowed_date <= start_date <= latest_allowed_date, ("ValueError: "
+            assert (earliest_allowed_date <= start_date <= latest_allowed_date), ("ValueError: "
             f"Please input a date between {earliest_allowed_date.strftime('%Y-%m-%d')}"
             f" to {latest_allowed_date.strftime('%Y-%m-%d')}.")
         except ValueError:
             raise AssertionError(f"Invalid date: {start_date}.")
-        max_allowed_window = 3
-        assert 1 <= window_length <= max_allowed_window, ("ValueError: Input " 
-                    f"should be an integer between 1 or {window_length}.")
+
+        assert (1 <= window_length <= self.window_max_length), ("ValueError: Input " 
+                    f"should be an integer between 1 or {self.window_max_length}.")
 
         end_date = start_date + pd.Timedelta(window_length-1, unit='d')
         predict_window = pd.date_range(start=start_date, end=end_date, freq='d')
@@ -458,20 +469,19 @@ class kNN_forecast:
         try:
             year, month, day = int(date_str[:4]), int(date_str[5:7]), int(date_str[8:])
             start_date = pd.Timestamp(year=year, month=month, day=day)
-            assert earliest_allowed_date <= start_date <= latest_allowed_date, ("ValueError: "
+            assert (earliest_allowed_date <= start_date <= latest_allowed_date), ("ValueError: "
             f"Please input a date between {earliest_allowed_date.strftime('%Y-%m-%d')}"
             f" to {latest_allowed_date.strftime('%Y-%m-%d')}.")
         except ValueError:
             raise AssertionError(f"Invalid date: {year}-{month}-{day}")
         print(f"\nYou have entered: {start_date.strftime('%Y-%m-%d')}.")
 
-        window_length = 3
         print(f"\nPlease enter forecast window (in days)."
-              f" It should be an integer between 1 or {window_length}.")
+              f" It should be an integer between 1 or {self.window_max_length}.")
         
         window = int(input("Input forecast window: "))
-        assert 1 <= window <= window_length, ("ValueError: Input "
-        f"should be an integer between 1 or {window_length}.")
+        assert (1 <= window <= self.window_max_length), ("ValueError: Input "
+        f"should be an integer between 1 or {self.window_max_length}.")
 
         print(f"\nYou have entered: {window}")
 

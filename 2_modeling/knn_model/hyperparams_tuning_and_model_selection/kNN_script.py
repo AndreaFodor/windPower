@@ -123,6 +123,7 @@ class kNN_Cross_Validation:
             go.Figure: Plotly graph object representing the forecast plot.
         """
         days = list(true.keys())
+        days = pd.to_datetime(days)
         true_vals = list(true.values())
 
         fig = go.Figure()
@@ -688,11 +689,8 @@ class kNN_Cross_Validation:
                                     hyperparam_comb_index[best_mae_idx][0], 
                                     hyperparam_comb_index[best_mae_idx][1])
             if display:
-                print("Best in terms of MAPE:")
-                self.fig_best_MAPE.show()
-                print("Best in terms of R2:")               
+                self.fig_best_MAPE.show()           
                 self.fig_best_r2.show()
-                print("Best in terms of MAE:")
                 self.fig_best_mae.show()
 
 

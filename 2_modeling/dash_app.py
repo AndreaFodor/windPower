@@ -53,7 +53,7 @@ def update_forecast(n_clicks, choice, start_date, window):
     end_date = pd.to_datetime(start_date) + pd.Timedelta(days=window-1)
 
     if choice == 'kNN':
-        knn = kNN_Cross_Validation(with_confidence_interval=True, mode="Testing")
+        knn = kNN_Cross_Validation(with_confidence_interval=False, mode="Testing")
         # Pass input
         error_msg = knn.manual_input(start_date, window)
 
