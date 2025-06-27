@@ -70,13 +70,13 @@ We selected our models using the following cross-validation method: we trained t
 **kNN Regressor:**  The kNN model approach treats the dataset as non-time series dependent (focusing on weather variables). The kNN model is trained on the engineered feature: (wind speed)$^3$ divided by temperature (in Kelvin) for each wind farm. We train on hourly data, predict on hourly data, and then add the predicted values for the 24 hours to get the prediction on a particular day. Each prediction is based on a rolling 60-day training window. Our cross-validation scheme's MAPE, MAE, and the R²-score were 0.153, 4037.2, and 0.887, respectively.
 
 <center> 
-<img src = "4_figures/knn_validation.png", width = '60%', height = '60%' />,
+<img src = "4_figures/knn_validation.png", width = '60%', height = '60%' />
 </center>
 
 **ARIMAx Time Series:** We worked with this model because it was autoregressive, and our data is from a time-dependent process. A regular ARIMA model was tested with various parameters and training windows. These models performed worse than the baseline model. In the end, ARIMAx model was selected with the mean daily wind speed across all wind farms added as an exogenous variable. The training window is 60 days prior to the prediction date. The model uses StatsForecast python library. The ARIMA model with the mean daily wind speed added as an exogenous variable. Training is done on 60 days prior to the prediction date. The (p, d, q) parameters of the model are optimized by autoARIMA for each prediction. The MAPE, MAE, and R² score for our cross-validation scheme were 0.1832, 4,570.28, and 0.847, respectively.
 
 <center> 
-<img src = "4_figures/arima_validation.png", width = '60%', height = '60%' />,
+<img src = "4_figures/arima_validation.png", width = '60%', height = '60%' />
 </center>
 
 
@@ -90,13 +90,13 @@ We choose our best model on the basis of MAPE, MAE and R²-scores from the valid
 - **kNN Regressor (Time-series agnostic) Plots:** 
 
 <center> 
-<img src = "4_figures/knn_testing.png", width = '60%', height = '60%' />,
+<img src = "4_figures/knn_testing.png", width = '60%', height = '60%' />
 </center>
 
 - **ARIMAx (Time-series observant) Plots:** 
 
 <center> 
-<img src = "4_figures/arima_testing.png", width = '60%', height = '60%' />,
+<img src = "4_figures/arima_testing.png", width = '60%', height = '60%' />
 </center>
 
 
@@ -106,7 +106,7 @@ An interactive *dash app* that allows the user to choose a model between **kNN R
 
 <center>
 <p> 
-<img src = "4_figures/dash1.png", width = '40%' />,
+<img src = "4_figures/dash1.png", width = '40%' />
 <img src = "4_figures/dash2.png", width = '40%' />
 </p>
 </center>
