@@ -26,7 +26,7 @@ We selected our models using the following cross-validation method: we trained t
 We select our best model based on MAPE, MAE, and R² Scores from the validation step. We maintained two models: one that treats the data as a time series and the other that does not. 
 - kNN Regressor (Time-series agnostic): Performed best on both the training/validation set and the testing set. The kNN model is trained on the engineered feature: (wind speed)$^3$ divided by temperature (in Kelvin) for each wind farm. We train on hourly data, predict on hourly data, and then add the predicted values for the 24 hours to get the prediction on a particular day. Each prediction is based on a rolling 60-day training window.
 
-- ARIMAx (Time-series observant):
+- ARIMAx (Time-series observant): The ARIMA model with the mean daily wind speed added as an exogenous variable. Training is done on 60 days prior to the prediction date. The (p,d,q) parameters are chosen using auto_ARIMA. 
 
 ## Results
 
