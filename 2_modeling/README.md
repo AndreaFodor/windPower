@@ -8,7 +8,7 @@ This folder contains implementation of different modeling approach that we tried
     - `models/`: Contains Python script for the ARIMAx model and a few baseline models:
         - `baselines.py`: Baseline models.
         - `timeseries.py`: **ARIMAx** model.
-- `knn_model/`: Contains all relevant folders for the **kNN Regressor** model - executable scripts, explanatory jupyter notebooks, and a *README* file for the folder.
+- `knn_model/`: Contains all relevant folders for the **kNN Regressor** model - contains its own *README*.
 - `linear_regression/`: Contains a jupyter notebook `LinearRegression.ipynb` highlighting the implementation of a simple linear regression model with only the mean wind speed across all wind farms as the feature.
 - `multilinear_regression/`:
 - `random_forests/`:

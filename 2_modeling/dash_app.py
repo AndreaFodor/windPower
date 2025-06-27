@@ -103,7 +103,8 @@ def update_all(model_choice, n_clicks, start_date, window):
                 output_scores = f"kNN CV error scores: MAPE: {cmape:.3f}; MAE: {cmae:.3f}, R²: {cr2:.3f}."
             else:
                 ## True power outputs not available, not possible to calculate error
-                output_scores = " "
+                output_scores = (f"Predicted values: {[f"{x: .1f}" for x in knn.predicted_values]}" 
+                                 if window <=3 else "")
         else:
             return (dash.no_update, dash.no_update, dash.no_update, dash.no_update, 
                     go.Figure(), "Invalid model", "")
