@@ -84,7 +84,7 @@ We selected our models using the following cross-validation method: we trained t
 ## Test Results
 We found that on the validation data, the models that performed best were ARIMAx and kNN. We wanted to use both a time series model and a non-time series model, since generated wind power may not necessarily depend on previous data points, but rather on the weather conditions of that day. Of course, the weather itself is dependent on the weather from the last day, so for that reason, we tried both.
  
-These models were tested using the data from 2023. For ARIMAx, we found that the MAPE, MAE, and R²-score were 0.289, 4919, and 0.827, respectively. For kNN, we discovered that the MAPE, MAE, and R² Score were 0.218, 4,297, and 0.873, respectively. These results are slightly worse than those on our testing data, but still provide reasonably accurate results. The MAE for both models is less than half the average power generated per day, which is around 31000 MW. We scale our MAE by the maximum power generated across Québec, which is approximately 79 000 MW. In that case, we obtain a scaled MAE of less than 8%, which is better than the scaled MAE of the results for wind power forecasting in other regions, as reported in [this study](https://www.sciencedirect.com/science/article/pii/S0960148122004931). Though this MAE is still large enough that we may not always accurately predict very low power generation days. Our R² score is lower than [that of some other experiments](https://www.nature.com/articles/s41598-025-96262-6#:~:text=The%20accuracy%20and%20stability%20are%20better%20than,pivotal%20direction%20in%20wind%20power%20prediction%20research.), which have achieved R² scores as high as 0.98 for wind power forecasts. 
+These models were tested using the data from 2023. For ARIMAx, we found that the MAPE, MAE, and R²-score were 0.289, 4919, and 0.827, respectively. For kNN, we discovered that the MAPE, MAE, and R² Score were 0.218, 4,297, and 0.873, respectively. These results are slightly worse than those on our testing data, but still provide reasonably accurate results. The MAE for both models is less than half the average power generated per day, which is around 31000 MW. We scale our MAE by the maximum power generated across Québec, which is approximately 79,000 MW. In that case, we obtain a scaled MAE of less than 8%, which is better than the scaled MAE of the results for wind power forecasting in other regions, as reported in [this study](https://www.sciencedirect.com/science/article/pii/S0960148122004931). Though this MAE is still large enough that we may not always accurately predict very low power generation days. Our R² score is lower than [that of some other experiments](https://www.nature.com/articles/s41598-025-96262-6#:~:text=The%20accuracy%20and%20stability%20are%20better%20than,pivotal%20direction%20in%20wind%20power%20prediction%20research.), which have achieved R² scores as high as 0.98 for wind power forecasts. 
 
 We choose our best model on the basis of MAPE, MAE and R²-scores from the validation step. We kept two models - one that treats the data as time-series and the other which does not. 
 - **kNN Regressor (Time-series agnostic) Plots:** 
@@ -102,7 +102,7 @@ We choose our best model on the basis of MAPE, MAE and R²-scores from the valid
 
 
 ## Dash APP
-An interactive *dash app* that allows the user to choose a model between **kNN Regressor** (with two options: i\) "Validation/Testing" running `kNN_script`, and ii\) "Real-time forecasting" running `kNN_real_time_script`) and **ARIMAx**, and input a prediction window. The difference between "kNN (Validation/Testing)" and "kNN (Real-time Forecasting)" is that the former, in theory, have all the necessary code to make a real-time forecast, given the user has access to the power data API key. 
+An interactive *dash app* that allows the user to choose a model between **kNN Regressor** (with two options: i\) "Validation/Testing" running `kNN_script`, and ii\) "Real-time forecasting" running `kNN_real_time_script`) and **ARIMAx**, and input a prediction window. The difference between "kNN (Validation/Testing)" and "kNN (Real-time Forecasting)" is that the latter, in theory, has all the necessary code to make a real-time forecast, given the user has access to the power data API key. 
 
 <center>
 <p> 
@@ -118,7 +118,7 @@ This repository contains the following:
 
 - `1_data/`: Contains all the notebooks to download, clean and merge the final dataframe for both validation and testing. Includes a *README* explaining the structure of the folder.
 
-- `2_modeling/:`Contains all the notebooks and scripts for exploratory data analysis, model selection and execution. Includes a *README* explaining the structure of the folder.
+- `2_modeling/:` Contains all the notebooks and scripts for exploratory data analysis, model selection and execution. Includes a *README* explaining the structure of the folder.
 
 - `3_checkpoints/:` Various checkpoints throughout the project window.
 
