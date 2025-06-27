@@ -10,7 +10,9 @@ This folder contains implementation of different modeling approach that we tried
         - `timeseries.py`: **ARIMAx** model.
 - `knn_model/`: Contains all relevant folders for the **kNN Regressor** model - contains its own *README*.
 - `linear_regression/`: Contains a jupyter notebook `LinearRegression.ipynb` highlighting the implementation of a simple linear regression model with only the mean wind speed across all wind farms as the feature.
-- `multilinear_regression/`:
+- `multilinear_regression/`: An attempt to model the wind data on the nth day only using weather on days n-1 or earlier. Ultimately, this was not successful.
+    - `MLR_script.py`: Continued the script needed for data processing and the module training, validation as well as plotting.
+    -`multilinear_regression.ipynb`: The notebook was used to load and divide the data as well as show the graphs and training results.
 - `random_forests/`:
 - `dash_app.py`: An interactive *dash app* that allows the user to choose a model between **kNN Regressor** (with two options: i\) "Validation/Testing" running `kNN_script`, and ii\) "Real-time forecasting" running `kNN_real_time_script`) and **ARIMAx**, and input a prediction window. The difference between "kNN (Validation/Testing)" and "kNN (Real-time Forecasting)" is that the former, in theory, can make real-time forecast, given the user has access to the power data API key. The app runs the chosen model on the prediction window to display the error scores and a plot of the predicted values vs the true values.
 - `final_testing.ipynb`: A jupyter notebook displaying the error scores and plots by running the best models we have - **kNN Regressor** and **ARIMAx**.
