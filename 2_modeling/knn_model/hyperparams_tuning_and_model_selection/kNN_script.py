@@ -139,6 +139,7 @@ class kNN_Cross_Validation:
 
         # Predicted values trace
         if self.ci:
+            # Plotting confidence interval band
             preds = np.array(preds)
             mean_preds = np.mean(preds, axis=1)
             lower = [x for (x,y) in self.pred_conf_intervals]
@@ -178,7 +179,7 @@ class kNN_Cross_Validation:
                 y=preds,
                 mode='lines',
                 name='Predicted',
-                line=dict(color='#FFC107', dash='dash')
+                line=dict(color="#D81B60", dash='dash')
             ))
 
         # Annotated box as text annotation

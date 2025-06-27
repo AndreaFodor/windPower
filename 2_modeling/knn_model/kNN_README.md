@@ -13,6 +13,5 @@ This folder includes two folders showing two different implemetation based on tw
 - `kNN_real_time.ipynb`: A jupyter notebook **documentation** of `kNN_real_time_script.py`, and example executions of the available methods.
 - `real_time_weather_api.py`: Contains the function `weather_api_call` to retrieve real time weather forecasting data using an API call.
 - `real_time_power_api.py`: Contains the function `power_api_call` to retrieve real time weather forecasting data using an API call.
-- `dash_app_real_time.py`: An interactive *dash app* executable script to implement `kNN_real_time_script.py`, and to display a plot with forecasted values.
 - `already_downloaded_data/:` In case, the user inputs a forecast window in the past, the script uses the already downloaded data, rather than an unnecessary API call. Contains two `.csv` files corresponding to weather and power data.
 
