@@ -2,8 +2,8 @@
 
 This folder contains implementation of different modeling approach that we tried. Our best models were **kNN Regressor** and **ARIMAx**.  
 
-- `arima_model/`: Contains exploratory data analysis, initial trials of some time series models, and the main ARIMAx model.
-    - `exploreData.ipynb`: Contains exploratory data analysis of th
+- `arima_model/`: Contains exploratory data analysis, initial trials of some time series models, and the main ARIMAx model. Also contains a *README* file of its own.
+    - `exploreData.ipynb`: Contains exploratory data analysis results and plots.
     - `time_series_mode.ipynb`: Contains initial trials of different time series model approaches.
     - `models/`: Contains Python script for the ARIMAx model and a few baseline models:
         - `baselines.py`: Baseline models.
