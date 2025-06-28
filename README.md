@@ -3,11 +3,11 @@
 **The Erdős Institute Data Science Bootcamp Summer 2025**
 
 **Team Members:**
-- [Desmond Coles](https://github.com/desmondcoles1)
-- [Andrea Fodor](https://github.com/AndreaFodor)
-- [Kavindra Nissanka](https://github.com/kvnissanka87)
-- [Manimugdha Saikia](https://github.com/m-saikia)
-- [Jaxon Shumaker](https://github.com/shumakerJ)
+- [Desmond Coles](https://www.linkedin.com/in/desmondcoles/)
+- [Andrea Fodor](https://www.linkedin.com/in/anfodor/)
+- [Kavinda Nissanka](https://www.linkedin.com/in/kavinda-nissanka/)
+- [Manimugdha Saikia](https://www.linkedin.com/in/manimugdha-saikia-phd-54b455178/)
+- [Jaxon Shumaker](https://www.linkedin.com/in/jaxon-shumaker-b661122a4/)
 
 ## Introduction
 
