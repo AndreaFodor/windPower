@@ -10,7 +10,7 @@
 - [Jaxon Shumaker](https://www.linkedin.com/in/jaxon-shumaker-b661122a4/)
 
 ## Introduction
-Wind power is the second-largest source of renewable energy for HydroQuébec, a public utility corporation that provides power to Canadians in Québec and exports to Northeast American Power Traders. Knowledge of day-ahead power forecasting is an essential metric for the company.  
+Wind power is the second-largest source of renewable energy for HydroQuébec, a public utility corporation that provides power to Canadians in Québec and exports to Northeast American Power Traders. Knowledge of day-ahead power forecasting is an essential metric for the company.
 
 ## Goal
 
