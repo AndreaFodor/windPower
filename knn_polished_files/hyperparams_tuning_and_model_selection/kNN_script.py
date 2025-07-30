@@ -234,10 +234,24 @@ class kNN_Cross_Validation:
         try:
             assert (isinstance(train_window, pd.DatetimeIndex) and isinstance(test_window, pd.DatetimeIndex)), (
                 "TypeError: start_date and  end_date must be pandas.Timestamp type variable.")
-            train_days = self.list_of_days(train_window)
-            test_days = self.list_of_days(test_window)
-            train_df = df[df['YearMonthDay'].isin(train_days)]
-            test_df = df[df['YearMonthDay'].isin(test_days)]
+            modified_df = df.copy()
+            modified_df["Wind"] = modified_df['Wind'].shift(periods=-24)  
+            ## Using (X_n, y_{n+24}) as training and testing - use day n's weather data and n+1's power data.
+            train_days = self.list_of_days(pd.date_range(start= train_window[0] - pd.Timedelta(1, unit='d'),
+                                                        end= train_window[-1] - pd.Timedelta(1, unit='d')))
+            test_days = self.list_of_days(pd.date_range(start= test_window[0] - pd.Timedelta(1, unit='d'),
+                                                        end= test_window[-1] - pd.Timedelta(1, unit='d')))
+            train_df = modified_df[modified_df['YearMonthDay'].isin(train_days)]
+            test_df = modified_df[modified_df['YearMonthDay'].isin(test_days)]
+
+            #original_train = df[df["YearMonthDay"].isin(self.list_of_days(train_window))][["wind_speed_10m_1_cubed_div_temp", "Wind", "time"]]
+            #modified_train = train_df[["wind_speed_10m_1_cubed_div_temp", "Wind", "time"]]
+            #original_train.to_csv("original_train.csv")
+            #modified_train.to_csv("modified_train.csv")
+            #original_test = df[df["YearMonthDay"].isin(self.list_of_days(test_window))][["wind_speed_10m_1_cubed_div_temp", "Wind", "time"]]
+            #modifiied_test = test_df[["wind_speed_10m_1_cubed_div_temp", "Wind", "time"]]
+            #original_test.to_csv("original_test.csv")
+            #modifiied_test.to_csv("modified_test.csv")
             return train_df, test_df
         except:
             print("Incorrect dataframe passed to extract_train_test_data.")
